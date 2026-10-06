@@ -1,0 +1,8 @@
+INPUT n
+rev = 0
+WHILE n > 0 DO
+  digit = n % 10
+  rev = rev * 10 + digit
+  n = n / 10 (integer division)
+END WHILE
+OUTPUT rev

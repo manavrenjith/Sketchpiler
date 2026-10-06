@@ -1,0 +1,10 @@
+INPUT a, b, c
+IF a >= b AND a >= c THEN
+  OUTPUT "a is largest"
+ELSE
+  IF b >= a AND b >= c THEN
+    OUTPUT "b is largest"
+  ELSE
+    OUTPUT "c is largest"
+  END IF
+END IF

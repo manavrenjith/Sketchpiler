@@ -1,0 +1,8 @@
+INPUT n
+sum = 0
+i = 1
+WHILE i <= n DO
+  sum = sum + i
+  i = i + 1
+END WHILE
+OUTPUT sum

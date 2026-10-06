@@ -1,0 +1,19 @@
+flowchart
+N1 start "Start"
+N2 io "Input n"
+N3 proc "rev = 0"
+N4 dec "n > 0?"
+N5 proc "digit = n % 10"
+N6 proc "rev = rev * 10 + digit"
+N7 proc "n = n / 10 (integer division)"
+N8 io "Display rev"
+N9 end "End"
+E N1 N2
+E N2 N3
+E N3 N4
+E N4 N5
+E N5 N6
+E N6 N7
+E N7 N4
+E N4 N8
+E N8 N9

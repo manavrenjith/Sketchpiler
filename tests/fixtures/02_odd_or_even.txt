@@ -1,0 +1,14 @@
+flowchart
+N1 start "Start"
+N2 io "Input n"
+N3 dec "n % 2 == 0?"
+N4 io "Display "Even""
+N5 io "Display "Odd""
+N6 end "End"
+N7 end "End"
+E N1 N2
+E N2 N3
+E N3 N4 "Yes"
+E N3 N5 "No"
+E N4 N6
+E N5 N7

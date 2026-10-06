@@ -1,0 +1,15 @@
+flowchart
+N1 start "Start"
+N2 io "Input n"
+N3 proc "sum = 0, i = 1"
+N4 dec "i <= n?"
+N5 proc "sum = sum + i; i = i + 1"
+N6 io "Display sum"
+N7 end "End"
+E N1 N2
+E N2 N3
+E N3 N4
+E N4 N5 "Yes"
+E N5 N4
+E N4 N6 "No"
+E N6 N7

@@ -1,0 +1,6 @@
+INPUT n
+IF n % 2 == 0 THEN
+  OUTPUT "Even"
+ELSE
+  OUTPUT "Odd"
+END IF

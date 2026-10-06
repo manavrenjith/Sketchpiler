@@ -1,0 +1,20 @@
+flowchart
+N1 start "Start"
+N2 io "Input a, b, c"
+N3 dec "a >= b AND a >= c?"
+N4 io "Display "a is largest""
+N5 end "End"
+N6 dec "b >= a AND b >= c?"
+N7 io "Display "b is largest""
+N8 end "End"
+N9 io "Display "c is largest""
+N10 end "End"
+E N1 N2
+E N2 N3
+E N3 N4 "Yes"
+E N3 N6 "No"
+E N4 N5
+E N6 N7 "Yes"
+E N6 N9 "No"
+E N7 N8
+E N9 N10
