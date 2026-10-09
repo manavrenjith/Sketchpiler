@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<!-- Main single-page web application shell for Sketchpiler intake, review, and generation. -->
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sketchpiler</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='8' width='10' height='16' rx='3' fill='none' stroke='%230071e3' stroke-width='2.5'/%3E%3Cpath d='M13 16h6' stroke='%230071e3' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M17 13l3.5 3-3.5 3' fill='%230071e3'/%3E%3Cpolygon points='25,9 31,16 25,23 19,16' fill='none' stroke='%230071e3' stroke-width='2.5' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem("sketchpiler_theme");
+                if (t === "light" || t === "dark") {
+                    document.documentElement.setAttribute("data-theme", t);
+                } else {
+                    document.documentElement.setAttribute("data-theme", "system");
+                }
+            } catch (e) { }
+        })();
+    </script>
+    <script src="/vendor/mermaid.min.js"></script>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        [data-view] {
+            display: none
+        }
+
+        [data-view].show {
+            display: block
+        }
+
+        @media (prefers-reduced-motion:no-preference) {
+            [data-view].show {
+                animation: in .2s ease-out
+            }
+
+            @keyframes in {
+                from {
+                    opacity: 0
+                }
+
+                to {
+                    opacity: 1
+                }
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-inner">
+            <a class="brand" href="#/">
+                <svg class="brand-mark" width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                    <rect x="2" y="7" width="9" height="14" rx="3" stroke="var(--accent)" stroke-width="2" fill="var(--accent-subtle)" />
+                    <path d="M11 14h6" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" />
+                    <path d="M15 11.5l3 2.5-3 2.5" fill="var(--accent)" />
+                    <path d="M22 8l5 6-5 6-5-6z" stroke="var(--accent)" stroke-width="2" fill="var(--accent-subtle)" stroke-linejoin="round" />
+                </svg>
+                <span>Sketchpiler</span>
+            </a>
+            <div class="header-controls">
+                <nav class="steps" aria-label="Progress"><a id="s1" href="#/">Home</a><a id="s2" href="#/upload">Upload</a></nav>
+                <div class="theme-switch" role="group" aria-label="Appearance">
+                    <button type="button" class="theme-btn" data-theme-val="system" aria-pressed="true" title="System appearance">Auto</button>
+                    <button type="button" class="theme-btn" data-theme-val="light" aria-pressed="false" title="Light appearance">Light</button>
+                    <button type="button" class="theme-btn" data-theme-val="dark" aria-pressed="false" title="Dark appearance">Dark</button>
+                </div>
+            </div>
+        </div>
+    </header>
+    <main>
+
+        <section data-view="home">
+            <div class="hero">
+                <div>
+                    <span class="hero-eyebrow">Sketchpiler</span>
+                    <h1>Draw a flowchart. Check it. Get code.</h1>
+                    <p class="hero-lead">Snap a photo of your hand-drawn flowchart. Sketchpiler detects the boxes and connections, lets you confirm and edit every shape, and generates clean pseudocode.</p>
+                    <div class="hero-actions">
+                        <a class="btn" id="startBtn" href="#/upload" style="text-decoration:none;display:inline-block">Upload a diagram</a>
+                        <button class="btn alt" id="heroSampleBtn" type="button">Try the sample</button>
+                    </div>
+                </div>
+                <div class="hero-preview">
+                    <svg viewBox="0 0 380 250" role="img"
+                        aria-label="A sketched flowchart cleanly connected to generated pseudocode"
+                        class="hero-svg">
+                        <!-- Sketched flowchart -->
+                        <g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                            stroke-linejoin="round" transform="rotate(-1.5 95 120)">
+                            <rect x="50" y="14" width="90" height="34" rx="17" />
+                            <path d="M95 48v20" />
+                            <path d="M89 62l6 6 6-6" />
+                            <rect x="40" y="68" width="110" height="38" />
+                            <path d="M95 106v20" />
+                            <path d="M89 120l6 6 6-6" />
+                            <path d="M95 126l48 32-48 32-48-32z" />
+                        </g>
+                        <g font-family="system-ui,-apple-system,sans-serif" font-size="13" font-weight="500" fill="currentColor" text-anchor="middle">
+                            <text x="95" y="36">Start</text>
+                            <text x="95" y="92">sum = 0</text>
+                            <text x="95" y="163">i &lt;= n ?</text>
+                        </g>
+                        <!-- Clean connection: from flowchart edge to pseudocode box without gap or stray dash -->
+                        <g fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M145 105 h65" />
+                            <path d="M202 99 l8 6 -8 6" />
+                        </g>
+                        <!-- Pseudocode Box -->
+                        <rect class="hero-code-box" x="216" y="38" width="148" height="134" rx="8" />
+                        <g class="hero-code-text" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="12">
+                            <text x="228" y="64">INPUT n</text>
+                            <text x="228" y="86">sum = 0</text>
+                            <text x="228" y="108">WHILE i &lt;= n DO</text>
+                            <text x="228" y="130">  sum = sum + i</text>
+                            <text x="228" y="152">END WHILE</text>
+                        </g>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Section 2: How It Works -->
+            <section class="home-section" aria-labelledby="how-heading">
+                <div class="section-header">
+                    <span class="section-tag">Workflow</span>
+                    <h2 id="how-heading" class="section-title">How Sketchpiler Works</h2>
+                    <p class="section-desc">From rough ink on paper to verified algorithmic logic in three clear stages.</p>
+                </div>
+                <div class="how-grid">
+                    <div class="how-card">
+                        <div class="how-header">
+                            <span class="how-num">1</span>
+                        </div>
+                        <h3>Capture</h3>
+                        <p>Take a straight-on photo of your hand-drawn diagram. Accepts JPEG, PNG, and WebP up to 10 MB.</p>
+                    </div>
+                    <div class="how-card featured">
+                        <div class="how-header">
+                            <span class="how-num">2</span>
+                            <span class="how-badge">Core Step</span>
+                        </div>
+                        <h3>You Confirm Every Box</h3>
+                        <p>Review every recognized shape, text label, and branch in the interactive editor. Nothing proceeds to code without your verification.</p>
+                    </div>
+                    <div class="how-card">
+                        <div class="how-header">
+                            <span class="how-num">3</span>
+                        </div>
+                        <h3>Get Pseudocode</h3>
+                        <p>Receive structured, human-readable pseudocode with validated while loops, conditionals, and sequential steps.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 3: Before / After Illustration -->
+            <section class="home-section" aria-labelledby="comparison-heading">
+                <div class="section-header">
+                    <span class="section-tag">Transformation</span>
+                    <h2 id="comparison-heading" class="section-title">Before and After</h2>
+                    <p class="section-desc">See the sum-of-n algorithm transform from quick sketch to digital structure to code.</p>
+                </div>
+                <div class="before-after-grid">
+                    <!-- 1. Hand-Drawn Sketch -->
+                    <div class="before-after-card">
+                        <div class="before-after-header">1. Hand-Drawn Sketch</div>
+                        <div class="before-after-view">
+                            <svg viewBox="0 0 200 240" width="100%" height="220" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-label="Sketch of sum-of-n flowchart">
+                                <g stroke-width="1.8" transform="rotate(-1 100 120)">
+                                    <!-- Start oval -->
+                                    <path d="M70 20 C60 20, 55 35, 70 38 L130 38 C145 38, 145 20, 130 20 Z" />
+                                    <text x="100" y="32" font-family="system-ui, sans-serif" font-size="11" fill="currentColor" text-anchor="middle" stroke="none">Start</text>
+                                    <path d="M100 39 v18" />
+                                    <!-- Input n -->
+                                    <path d="M55 58 L145 58 L135 84 L45 84 Z" />
+                                    <text x="95" y="74" font-family="system-ui, sans-serif" font-size="11" fill="currentColor" text-anchor="middle" stroke="none">Input n</text>
+                                    <path d="M95 85 v18" />
+                                    <!-- Decision diamond -->
+                                    <path d="M95 104 L145 126 L95 148 L45 126 Z" />
+                                    <text x="95" y="129" font-family="system-ui, sans-serif" font-size="10" fill="currentColor" text-anchor="middle" stroke="none">i &lt;= n ?</text>
+                                    <!-- YES branch -->
+                                    <path d="M145 126 h24 v40 h-30" />
+                                    <text x="160" y="120" font-family="system-ui, sans-serif" font-size="9" fill="currentColor" stroke="none">YES</text>
+                                    <!-- NO branch -->
+                                    <path d="M95 148 v26" />
+                                    <text x="103" y="162" font-family="system-ui, sans-serif" font-size="9" fill="currentColor" stroke="none">NO</text>
+                                    <!-- Display sum -->
+                                    <path d="M55 174 L145 174 L135 198 L45 198 Z" />
+                                    <text x="95" y="190" font-family="system-ui, sans-serif" font-size="10" fill="currentColor" text-anchor="middle" stroke="none">Display sum</text>
+                                    <path d="M95 199 v16" />
+                                    <!-- End -->
+                                    <path d="M72 216 C60 216, 60 234, 75 234 L125 234 C140 234, 140 216, 125 216 Z" />
+                                    <text x="100" y="228" font-family="system-ui, sans-serif" font-size="10" fill="currentColor" text-anchor="middle" stroke="none">End</text>
+                                </g>
+                            </svg>
+                        </div>
+                    </div>
+                    <!-- 2. Clean Diagram -->
+                    <div class="before-after-card">
+                        <div class="before-after-header">2. Clean Diagram</div>
+                        <div class="before-after-view">
+                            <svg viewBox="0 0 200 240" width="100%" height="220" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-label="Digital flowchart diagram">
+                                <rect x="65" y="16" width="70" height="26" rx="13" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.8" />
+                                <text x="100" y="33" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="var(--text)" text-anchor="middle" stroke="none">Start</text>
+                                <path d="M100 42 v16" stroke="var(--border-strong)" stroke-width="1.5" />
+                                <polygon points="97,54 100,60 103,54" fill="var(--text)" stroke="none" />
+                                <rect x="52" y="60" width="96" height="26" rx="4" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.5" />
+                                <text x="100" y="77" font-family="system-ui, sans-serif" font-size="11" fill="var(--text)" text-anchor="middle" stroke="none">Input n</text>
+                                <path d="M100 86 v16" stroke="var(--border-strong)" stroke-width="1.5" />
+                                <polygon points="97,98 100,104 103,98" fill="var(--text)" stroke="none" />
+                                <polygon points="100,104 146,124 100,144 54,124" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.8" />
+                                <text x="100" y="127" font-family="system-ui, sans-serif" font-size="10" font-weight="600" fill="var(--text)" text-anchor="middle" stroke="none">i &lt;= n ?</text>
+                                <!-- YES branch -->
+                                <path d="M146 124 h22 v36 h-24" stroke="var(--border-strong)" stroke-width="1.5" />
+                                <polygon points="148,157 142,160 148,163" fill="var(--text)" stroke="none" />
+                                <rect x="148" y="114" width="22" height="12" rx="2" fill="var(--surface)" stroke="none" />
+                                <text x="150" y="123" font-family="system-ui, sans-serif" font-size="8" font-weight="700" fill="var(--accent)" stroke="none">YES</text>
+                                <!-- NO branch -->
+                                <path d="M100 144 v20" stroke="var(--border-strong)" stroke-width="1.5" />
+                                <polygon points="97,160 100,166 103,160" fill="var(--text)" stroke="none" />
+                                <rect x="103" y="148" width="16" height="12" rx="2" fill="var(--surface)" stroke="none" />
+                                <text x="105" y="157" font-family="system-ui, sans-serif" font-size="8" font-weight="700" fill="var(--muted)" stroke="none">NO</text>
+                                <rect x="52" y="166" width="96" height="26" rx="4" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.5" />
+                                <text x="100" y="183" font-family="system-ui, sans-serif" font-size="11" fill="var(--text)" text-anchor="middle" stroke="none">Display sum</text>
+                                <path d="M100 192 v16" stroke="var(--border-strong)" stroke-width="1.5" />
+                                <polygon points="97,204 100,210 103,204" fill="var(--text)" stroke="none" />
+                                <rect x="65" y="210" width="70" height="24" rx="12" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.8" />
+                                <text x="100" y="226" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="var(--text)" text-anchor="middle" stroke="none">End</text>
+                            </svg>
+                        </div>
+                    </div>
+                    <!-- 3. Pseudocode -->
+                    <div class="before-after-card">
+                        <div class="before-after-header">3. Generated Pseudocode</div>
+                        <pre class="before-after-code"><code>INPUT n
+sum = 0
+i = 1
+WHILE i &lt;= n DO
+  sum = sum + i
+  i = i + 1
+END WHILE
+OUTPUT sum</code></pre>
+                    </div>
+                </div>
+                <p class="illustration-caption">Illustration</p>
+            </section>
+
+            <!-- Section 4: Trust & Validator Checks -->
+            <section class="home-section" aria-labelledby="trust-heading">
+                <div class="section-header">
+                    <span class="section-tag">Validation</span>
+                    <h2 id="trust-heading" class="section-title">Verified Structural Rules</h2>
+                    <p class="section-desc">Every flowchart is evaluated by our core validator before pseudocode generation.</p>
+                </div>
+                <div class="trust-grid">
+                    <div class="trust-card">
+                        <svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                        <div class="trust-body">
+                            <h4>Single Start Node</h4>
+                            <p>Enforces exactly one entry point in the diagram, catching missing or duplicate start nodes.</p>
+                        </div>
+                    </div>
+                    <div class="trust-card">
+                        <svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                        <div class="trust-body">
+                            <h4>Guaranteed Termination</h4>
+                            <p>Verifies the flowchart has at least one valid end node so execution terminates properly.</p>
+                        </div>
+                    </div>
+                    <div class="trust-card">
+                        <svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                        <div class="trust-body">
+                            <h4>Two-Exit Decisions</h4>
+                            <p>Ensures every decision diamond has at least two outgoing edges for true and false branching.</p>
+                        </div>
+                    </div>
+                    <div class="trust-card">
+                        <svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                        <div class="trust-body">
+                            <h4>No Orphan Nodes</h4>
+                            <p>Traverses the connection graph to ensure every box is fully reachable from the start node.</p>
+                        </div>
+                    </div>
+                    <div class="trust-card">
+                        <svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                        <div class="trust-body">
+                            <h4>Referential Integrity</h4>
+                            <p>Confirms every directed arrow connects valid, known source and target diagram nodes.</p>
+                        </div>
+                    </div>
+                    <div class="trust-card">
+                        <svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                        <div class="trust-body">
+                            <h4>Full Human Editing</h4>
+                            <p>Every detected box kind, text label, and connection can be inspected and edited in the editor.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 5: Supported Diagram Types -->
+            <section class="home-section" aria-labelledby="supported-heading">
+                <div class="section-header">
+                    <span class="section-tag">Compatibility</span>
+                    <h2 id="supported-heading" class="section-title">Supported Diagrams</h2>
+                    <p class="section-desc">Current diagram capabilities and formats in the pipeline.</p>
+                </div>
+                <div class="supported-grid">
+                    <div class="supported-card">
+                        <div class="supported-info">
+                            <h4>Standard Flowcharts</h4>
+                            <p>Start, End, Step, Input/Output, and Decision boxes</p>
+                        </div>
+                        <span class="badge badge-ok">Supported</span>
+                    </div>
+                    <div class="supported-card">
+                        <div class="supported-info">
+                            <h4>Pseudocode Generation</h4>
+                            <p>While loops, conditionals, assignments, and I/O</p>
+                        </div>
+                        <span class="badge badge-ok">Supported</span>
+                    </div>
+                    <div class="supported-card">
+                        <div class="supported-info">
+                            <h4>Entity-Relationship (ER)</h4>
+                            <p>Entities, relationships, and attributes</p>
+                        </div>
+                        <span class="badge badge-muted">Planned</span>
+                    </div>
+                    <div class="supported-card">
+                        <div class="supported-info">
+                            <h4>UML Class &amp; Sequence</h4>
+                            <p>Class hierarchies and method message flows</p>
+                        </div>
+                        <span class="badge badge-muted">Planned</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 6: Privacy -->
+            <section class="home-section" aria-labelledby="privacy-heading">
+                <div class="privacy-card">
+                    <svg class="privacy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    <div>
+                        <strong id="privacy-heading">Privacy &amp; Data Handling.</strong>
+                        Your diagram image is sent only to the configured vision provider (Google Gemini or an OpenAI-compatible endpoint). When configured with a local OpenAI-compatible model, your data never leaves your machine.
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <section data-view="upload">
+            <h2>Upload your diagram</h2>
+            <p class="mute">A photo of one flowchart. JPEG, PNG or WebP, up to 10 MB. Straight-on photos with good light
+                read best.</p>
+            <input class="vh" id="file" type="file" accept="image/jpeg,image/png,image/webp">
+            <input class="vh" id="cameraInput" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+            <label class="drop" id="drop" for="file">
+                <div class="drop-icon-wrap" aria-hidden="true">
+                    <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                </div>
+                <img id="prev" alt="Preview of the chosen diagram">
+                <div class="prev-controls" id="prevControls" style="display:none">
+                    <button class="btn alt sm rotate-btn" id="rotateLeftBtn" type="button" title="Rotate 90° counter-clockwise">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                        Rotate left
+                    </button>
+                    <button class="btn alt sm rotate-btn" id="rotateRightBtn" type="button" title="Rotate 90° clockwise">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        Rotate right
+                    </button>
+                </div>
+                <strong id="dropMain">Choose a photo, drop it, or paste from clipboard</strong>
+                <span class="mute" id="dropSub">Nothing selected yet</span>
+            </label>
+            <p class="upload-privacy-note">Your diagram image is processed only by the AI provider configured on this server and is not retained after extraction.</p>
+            <div class="err" id="err" role="alert"></div>
+            <div class="row">
+                <button class="btn" id="readBtn" disabled>Read diagram</button>
+                <label class="btn alt camera-btn" id="cameraBtn" for="cameraInput">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    Take photo
+                </label>
+                <button class="btn alt" id="sampleBtn" type="button">See a recorded example instead</button>
+                <div class="busy-wrap" id="busy" role="status" aria-live="polite" style="display:none">
+                    <div class="busy-indicator">
+                        <svg class="busy-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" stroke="var(--border-strong)" stroke-width="2.5" fill="none"></circle>
+                            <path d="M12 2 a10 10 0 0 1 10 10" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"></path>
+                        </svg>
+                        <span>Reading diagram... (<span id="busyTimer">0s</span>)</span>
+                    </div>
+                    <button class="btn alt sm" id="cancelReadBtn" type="button">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Step 1: Photo Tips "For best results" -->
+            <details class="photo-tips-card" id="photoTips">
+                <summary class="photo-tips-summary">
+                    <strong>Photo tips for best results</strong>
+                    <span class="mute">— 3 common traps</span>
+                </summary>
+                <div class="tips-grid">
+                    <!-- Pair 1: Angle -->
+                    <div class="tip-pair">
+                        <h4 class="tip-pair-title">1. Camera Angle</h4>
+                        <div class="tip-card">
+                            <span class="tip-badge tip-good" aria-hidden="true">✓ Good</span>
+                            <div class="tip-svg-wrap">
+                                <svg viewBox="0 0 80 50" width="80" height="50" role="img" aria-label="Illustration showing a document photographed flat and directly from above">
+                                    <rect x="15" y="6" width="50" height="38" rx="2" fill="var(--surface-secondary)" stroke="var(--ok-text)" stroke-width="1.8" />
+                                    <line x1="22" y1="14" x2="48" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                                    <line x1="22" y1="22" x2="58" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                                    <line x1="22" y1="30" x2="42" y2="30" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                                </svg>
+                            </div>
+                            <strong class="tip-text-title">Straight-on angle</strong>
+                            <p class="tip-desc">Hold camera flat and parallel to the paper.</p>
+                        </div>
+                        <div class="tip-card">
+                            <span class="tip-badge tip-avoid" aria-hidden="true">✕ Avoid</span>
+                            <div class="tip-svg-wrap">
+                                <svg viewBox="0 0 80 50" width="80" height="50" role="img" aria-label="Illustration showing a document photographed at a severe angle">
+                                    <polygon points="26,8 54,8 68,42 12,42" fill="var(--surface-secondary)" stroke="var(--bad-text)" stroke-width="1.8" />
+                                    <line x1="27" y1="18" x2="53" y2="18" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                                    <line x1="23" y1="27" x2="57" y2="27" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                                    <line x1="19" y1="36" x2="61" y2="36" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                                </svg>
+                            </div>
+                            <strong class="tip-text-title">Tilted / skewed angle</strong>
+                            <p class="tip-desc">Avoid steep tilts that compress shapes.</p>
+                        </div>
+                    </div>
+
+                    <!-- Pair 2: Lighting -->
+                    <div class="tip-pair">
+                        <h4 class="tip-pair-title">2. Lighting &amp; Shadows</h4>
+                        <div class="tip-card">
+                            <span class="tip-badge tip-good" aria-hidden="true">✓ Good</span>
+                            <div class="tip-svg-wrap">
+                                <svg viewBox="0 0 80 50" width="80" height="50" role="img" aria-label="Illustration showing an evenly illuminated document with clear lines">
+                                    <rect x="15" y="6" width="50" height="38" rx="2" fill="var(--surface-secondary)" stroke="var(--ok-text)" stroke-width="1.8" />
+                                    <circle cx="56" cy="14" r="3" fill="var(--warn-text)" />
+                                    <line x1="22" y1="18" x2="44" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                                    <line x1="22" y1="26" x2="58" y2="26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                                    <line x1="22" y1="34" x2="50" y2="34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                                </svg>
+                            </div>
+                            <strong class="tip-text-title">Even, bright light</strong>
+                            <p class="tip-desc">Clear, uniform light across all boxes.</p>
+                        </div>
+                        <div class="tip-card">
+                            <span class="tip-badge tip-avoid" aria-hidden="true">✕ Avoid</span>
+                            <div class="tip-svg-wrap">
+                                <svg viewBox="0 0 80 50" width="80" height="50" role="img" aria-label="Illustration showing dark cast shadow falling across the paper">
+                                    <rect x="15" y="6" width="50" height="38" rx="2" fill="var(--surface-secondary)" stroke="var(--bad-text)" stroke-width="1.8" />
+                                    <polygon points="16,24 64,8 64,43 16,43" fill="rgba(0,0,0,0.25)" />
+                                    <line x1="22" y1="16" x2="54" y2="16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                                    <line x1="22" y1="26" x2="54" y2="26" stroke="rgba(0,0,0,0.3)" stroke-width="1.5" stroke-linecap="round" />
+                                    <line x1="22" y1="36" x2="46" y2="36" stroke="rgba(0,0,0,0.3)" stroke-width="1.5" stroke-linecap="round" />
+                                </svg>
+                            </div>
+                            <strong class="tip-text-title">Harsh shadows</strong>
+                            <p class="tip-desc">Avoid phone shadows obscuring text.</p>
+                        </div>
+                    </div>
+
+                    <!-- Pair 3: Arrow Connections -->
+                    <div class="tip-pair">
+                        <h4 class="tip-pair-title">3. Arrow Connections</h4>
+                        <div class="tip-card">
+                            <span class="tip-badge tip-good" aria-hidden="true">✓ Good</span>
+                            <div class="tip-svg-wrap">
+                                <svg viewBox="0 0 80 50" width="80" height="50" role="img" aria-label="Illustration showing flowchart boxes with separated, non-crossing arrow paths">
+                                    <rect x="12" y="10" width="22" height="14" rx="2" fill="var(--surface)" stroke="var(--ok-text)" stroke-width="1.5" />
+                                    <rect x="46" y="26" width="22" height="14" rx="2" fill="var(--surface)" stroke="var(--ok-text)" stroke-width="1.5" />
+                                    <path d="M23 24 v10 h21" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                                    <polygon points="41,31 46,34 41,37" fill="currentColor" stroke="none" />
+                                </svg>
+                            </div>
+                            <strong class="tip-text-title">Clean arrow paths</strong>
+                            <p class="tip-desc">Arrows connect clearly without crossing.</p>
+                        </div>
+                        <div class="tip-card">
+                            <span class="tip-badge tip-avoid" aria-hidden="true">✕ Avoid</span>
+                            <div class="tip-svg-wrap">
+                                <svg viewBox="0 0 80 50" width="80" height="50" role="img" aria-label="Illustration showing arrow lines colliding and cutting across box text">
+                                    <rect x="14" y="10" width="22" height="14" rx="2" fill="var(--surface)" stroke="var(--bad-text)" stroke-width="1.5" />
+                                    <rect x="44" y="26" width="22" height="14" rx="2" fill="var(--surface)" stroke="var(--bad-text)" stroke-width="1.5" />
+                                    <line x1="10" y1="28" x2="68" y2="16" stroke="var(--bad-text)" stroke-width="1.5" stroke-linecap="round" />
+                                    <line x1="25" y1="8" x2="55" y2="42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                                </svg>
+                            </div>
+                            <strong class="tip-text-title">Crossing lines</strong>
+                            <p class="tip-desc">Avoid lines cutting through text boxes.</p>
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <section data-view="result">
+            <div class="result-header-row">
+                <h2>Review your diagram</h2>
+                <div class="result-header-actions">
+                    <a class="btn" id="editBtn" href="/editor-canvas.html?from=review" style="text-decoration:none;display:inline-block">Edit this diagram</a>
+                    <button class="btn alt" id="againBtn" type="button">Upload another diagram</button>
+                </div>
+            </div>
+            <div class="banner" id="sampleNote" style="display:none"><strong>Recorded example.</strong> This is a saved
+                result for a sum-of-n flowchart, not your upload.</div>
+            <div class="chips" id="chips"></div>
+            <p class="mute result-checks-note" id="checksPassedNote"></p>
+            <ul class="warn" id="warns"></ul>
+            <div class="result-main-grid">
+                <div class="card diagram-card">
+                    <div class="card-header">
+                        <strong>Diagram</strong>
+                    </div>
+                    <div id="diagram" aria-live="polite"></div>
+                    <div class="diagram-actions-bar">
+                        <button class="btn" id="generatePseudoBtn" type="button">Generate pseudocode</button>
+                        <span id="genErr" class="gen-err-inline" role="alert"></span>
+                    </div>
+                </div>
+                <div class="result-right-col" id="resultRightCol">
+                    <div class="card" id="pseudoCard" style="display:none">
+                        <div class="card-header">
+                            <strong id="pseudoHeading">Pseudocode</strong>
+                            <button class="btn alt sm" id="copyPseudoBtnIndex" type="button">Copy pseudocode</button>
+                        </div>
+                        <div id="pseudoAnnounce" class="vh" aria-live="polite" role="status"></div>
+                        <pre id="pseudo"></pre>
+                    </div>
+                    <div class="card" id="complexityCard" style="display:none">
+                        <div class="card-header">
+                            <div class="complexity-title-wrap">
+                                <strong>Complexity</strong>
+                                <span class="badge complexity-badge badge-estimated" id="complexityBadge">Estimated</span>
+                            </div>
+                        </div>
+                        <div class="complexity-tiles">
+                            <div class="complexity-tile">
+                                <span class="complexity-tile-label">Time</span>
+                                <div class="complexity-tile-value" id="complexityTimeVal">O(1)</div>
+                                <p class="complexity-tile-reason" id="complexityTimeReason"></p>
+                            </div>
+                            <div class="complexity-tile">
+                                <span class="complexity-tile-label">Space</span>
+                                <div class="complexity-tile-value" id="complexitySpaceVal">O(1)</div>
+                                <p class="complexity-tile-reason" id="complexitySpaceReason"></p>
+                            </div>
+                        </div>
+                        <details class="complexity-details" id="complexityDetails">
+                            <summary class="complexity-details-summary">How this was estimated</summary>
+                            <div class="complexity-details-body" id="complexityLoopsList"></div>
+                        </details>
+                        <p class="complexity-footnote">Heuristic estimate read from the diagram's loops. Check it against your own analysis. Space counts extra variables, not the input.</p>
+                    </div>
+                </div>
+            </div>
+            <details class="card" id="detailsSection" style="margin-top:var(--space-5)">
+                <summary><strong>Details</strong> (Boxes and Arrows)</summary>
+                <div class="cols" style="margin-top:var(--space-4)">
+                    <div class="card wrap">
+                        <strong>Boxes</strong>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Id</th>
+                                    <th>Kind</th>
+                                    <th>Text</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="nodes"></tbody>
+                        </table>
+                    </div>
+                    <div class="card wrap">
+                        <strong>Arrows</strong>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th>Label</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="edges"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
+            <details class="card" style="margin-top:var(--space-3)">
+                <summary>Developer details</summary>
+                <pre id="raw"></pre>
+            </details>
+        </section>
+
+    </main>
+    <footer class="app-footer">
+        <div class="footer-inner">
+            <p><strong>Sketchpiler</strong> — course demo project v0.1.0</p>
+            <p class="mute" style="font-size:0.8rem"><!-- Fill in team/course names here --></p>
+        </div>
+    </footer>
+    <script type="module" src="/js/upload-core.js"></script>
+    <script type="module">
+        import * as DiagramView from "/js/diagram-view.js";
+        window.DiagramView = DiagramView;
+    </script>
+    <script type="module">
+        import * as ComplexityCore from "/js/complexity-core.js";
+        window.ComplexityCore = ComplexityCore;
+    </script>
+    <script type="module">
+        import { generateSourceId } from "/js/editor-core.js";
+        window.generateSourceId = generateSourceId;
+    </script>
+    <script>
+        // Settings to confirm against src/app.ts: the form field name multer expects, and the response shape.
+        var API = "/api/extract", FIELD = "image", MAXB = 10 * 1024 * 1024;
+        var TYPES = ["image/jpeg", "image/png", "image/webp"];
+        var MERMAID_FALLBACK = "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js";
+        var SAMPLE = {
+            provider: "gemini (recorded)", confidence: 1, truncated: false, warnings: [], representation: {
+                nodes: [["N1", "start", "Start"], ["N2", "io", "Input n"], ["N3", "proc", "Sum = 0, i = 1"], ["N4", "dec", "i <= n ?"], ["N5", "proc", "Sum = Sum + i; i = i + 1"], ["N6", "io", "Display sum"], ["N7", "end", "End"]].map(function (n) { return { id: n[0], type: n[1], text: n[2], uncertain: false } }),
+                edges: [["N1", "N2", null], ["N2", "N3", null], ["N3", "N4", null], ["N4", "N5", "YES"], ["N4", "N6", "NO"], ["N5", "N4", null], ["N6", "N7", null]].map(function (e) { return { from: e[0], to: e[1], label: e[2], uncertain: false } })
+            }
+        };
+        var KIND = { start: "Start", end: "End", proc: "Step", io: "Input or output", dec: "Decision" };
+        var file = null, result = null, isSample = false, mer = null;
+        var $ = function (s) { return document.querySelector(s) };
+
+        function makeSourceId() {
+            if (window.generateSourceId) return window.generateSourceId();
+            if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+                try { return crypto.randomUUID(); } catch (_) { }
+            }
+            return "src-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10);
+        }
+
+        function el(tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e }
+
+        function loadResultFromStorage() {
+            try {
+                var autosaved = sessionStorage.getItem("flowchart_editor_state");
+                var source = sessionStorage.getItem("flowchart_source");
+                if (autosaved && (source === "editor" || !result)) {
+                    var parsed = JSON.parse(autosaved);
+                    if (parsed && parsed.representation && Array.isArray(parsed.representation.nodes)) {
+                        var storedSourceId = parsed.sourceId || sessionStorage.getItem("flowchart_source_id") || (result && result.sourceId) || null;
+                        result = {
+                            representation: parsed.representation,
+                            positions: parsed.positions,
+                            edgeSides: parsed.edgeSides,
+                            sourceId: storedSourceId,
+                            isEditor: true,
+                            provider: (result && result.provider) || "canvas editor",
+                            confidence: (result && result.confidence)
+                        };
+                        if (storedSourceId) {
+                            sessionStorage.setItem("flowchart_source_id", storedSourceId);
+                        }
+                        isSample = false;
+                    }
+                }
+            } catch (e) { }
+        }
+
+        function route() {
+            var name = (location.hash.replace(/^#\/?/, "") || "home");
+            if (["home", "upload", "result"].indexOf(name) < 0) name = "home";
+            if (name === "result") {
+                loadResultFromStorage();
+                if (!result) { location.hash = "#/upload"; return; }
+                show();
+            }
+            document.querySelectorAll("[data-view]").forEach(function (s) { s.classList.toggle("show", s.dataset.view === name) });
+            var s1 = $("#s1"), s2 = $("#s2");
+            if (s1) {
+                var isHome = (name === "home");
+                s1.classList.toggle("on", isHome);
+                if (isHome) s1.setAttribute("aria-current", "page"); else s1.removeAttribute("aria-current");
+            }
+            if (s2) {
+                var isUpload = (name === "upload");
+                s2.classList.toggle("on", isUpload);
+                if (isUpload) s2.setAttribute("aria-current", "page"); else s2.removeAttribute("aria-current");
+            }
+            window.scrollTo(0, 0);
+        }
+        window.addEventListener("hashchange", route);
+
+        function showErr(msg) { var e = $("#err"); e.textContent = msg; e.style.display = msg ? "block" : "none" }
+
+        function choose(f) {
+            showErr("");
+            if (!f) return;
+            if (TYPES.indexOf(f.type) < 0) { showErr("That file is not a JPEG, PNG or WebP image. Choose a photo of your diagram."); return; }
+            if (f.size > MAXB) { showErr("That image is larger than 10 MB. Take a smaller photo or lower the resolution."); return; }
+            file = f;
+            var p = $("#prev"); if (p.dataset.u) URL.revokeObjectURL(p.dataset.u);
+            p.dataset.u = URL.createObjectURL(f); p.src = p.dataset.u; p.style.display = "block";
+            var pc = $("#prevControls"); if (pc) pc.style.display = "flex";
+            $("#dropMain").textContent = f.name || "Selected diagram";
+            $("#dropSub").textContent = (f.size / 1024).toFixed(0) + " KB. Choose another photo to replace it.";
+            $("#readBtn").disabled = false;
+        }
+
+        $("#file").addEventListener("change", function (e) {
+            if (e.target.files && e.target.files[0]) {
+                choose(e.target.files[0]);
+            }
+        });
+
+        var camInp = $("#cameraInput");
+        if (camInp) {
+            camInp.addEventListener("change", function (e) {
+                if (e.target.files && e.target.files[0]) {
+                    choose(e.target.files[0]);
+                }
+            });
+        }
+        var camBtn = $("#cameraBtn");
+        if (camBtn && camInp) {
+            camBtn.addEventListener("click", function () {
+                camInp.click();
+            });
+        }
+
+        // Dropzone drag/drop handling with depth counter to prevent stuck .over class
+        var drop = $("#drop");
+        var dragDepth = 0;
+        drop.addEventListener("dragenter", function (e) {
+            e.preventDefault();
+            dragDepth++;
+            drop.classList.add("over");
+        });
+        drop.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            drop.classList.add("over");
+        });
+        drop.addEventListener("dragleave", function (e) {
+            e.preventDefault();
+            dragDepth = Math.max(0, dragDepth - 1);
+            if (dragDepth === 0) {
+                drop.classList.remove("over");
+            }
+        });
+        drop.addEventListener("drop", function (e) {
+            e.preventDefault();
+            dragDepth = 0;
+            drop.classList.remove("over");
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+                choose(e.dataTransfer.files[0]);
+            }
+        });
+        window.addEventListener("dragover", function (e) {
+            if (!drop.contains(e.target) && e.target !== drop) {
+                dragDepth = 0;
+                drop.classList.remove("over");
+            }
+        });
+
+        // Clipboard paste (Ctrl+V) on Upload view only; skip inputs / textareas
+        window.addEventListener("paste", function (e) {
+            var view = (location.hash.replace(/^#\/?/, "") || "home");
+            if (view !== "upload") return;
+            var tag = e.target && e.target.tagName;
+            if (tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) {
+                return;
+            }
+            var items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type && items[i].type.indexOf("image/") === 0) {
+                    var blob = items[i].getAsFile();
+                    if (blob) {
+                        e.preventDefault();
+                        var pastedFile = new File([blob], blob.name || "pasted-diagram.png", { type: blob.type });
+                        choose(pastedFile);
+                        break;
+                    }
+                }
+            }
+        });
+
+        // Canvas-based image rotation
+        function rotateImageFile(fileObj, degrees) {
+            return new Promise(function (resolve, reject) {
+                var img = new Image();
+                var u = URL.createObjectURL(fileObj);
+                img.onload = function () {
+                    URL.revokeObjectURL(u);
+                    var w = img.naturalWidth || img.width;
+                    var h = img.naturalHeight || img.height;
+                    var rad = (degrees * Math.PI) / 180;
+                    var sin = Math.abs(Math.sin(rad));
+                    var cos = Math.abs(Math.cos(rad));
+                    var targetW = Math.round(w * cos + h * sin);
+                    var targetH = Math.round(w * sin + h * cos);
+
+                    var canvas = document.createElement("canvas");
+                    canvas.width = targetW;
+                    canvas.height = targetH;
+                    var ctx = canvas.getContext("2d");
+                    if (!ctx) {
+                        reject(new Error("Unable to obtain 2D canvas context"));
+                        return;
+                    }
+                    ctx.translate(targetW / 2, targetH / 2);
+                    ctx.rotate(rad);
+                    ctx.drawImage(img, -w / 2, -h / 2);
+
+                    var outType = fileObj.type || "image/png";
+                    if (TYPES.indexOf(outType) < 0) outType = "image/png";
+                    canvas.toBlob(function (blob) {
+                        if (!blob) {
+                            reject(new Error("Failed to encode rotated image"));
+                            return;
+                        }
+                        var rotated = new File([blob], fileObj.name || "diagram.png", {
+                            type: outType,
+                            lastModified: Date.now()
+                        });
+                        resolve(rotated);
+                    }, outType, 0.92);
+                };
+                img.onerror = function () {
+                    URL.revokeObjectURL(u);
+                    reject(new Error("Failed to load image for rotation"));
+                };
+                img.src = u;
+            });
+        }
+
+        async function rotateSelected(degrees) {
+            if (!file) return;
+            showErr("");
+            try {
+                var rotated = await rotateImageFile(file, degrees);
+                choose(rotated);
+            } catch (err) {
+                showErr("Could not rotate image: " + (err && err.message ? err.message : err));
+            }
+        }
+
+        var rotLeft = $("#rotateLeftBtn");
+        if (rotLeft) {
+            rotLeft.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                rotateSelected(-90);
+            });
+        }
+        var rotRight = $("#rotateRightBtn");
+        if (rotRight) {
+            rotRight.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                rotateSelected(90);
+            });
+        }
+        var prevControls = $("#prevControls");
+        if (prevControls) {
+            prevControls.addEventListener("click", function (e) {
+                e.stopPropagation();
+            });
+        }
+
+        function describe(status, data, text) {
+            var m = data && ((data.error && data.error.message) || data.message);
+            m = m || (text || "").slice(0, 200) || "Something went wrong.";
+            if (status === 429 || /rate limit/i.test(m)) m += " The free plan allows only a few requests a minute and a limited number a day. Wait a minute and try again.";
+            return "Could not read the diagram (HTTP " + status + "). " + m;
+        }
+
+        var activeAbortController = null;
+        var busyTimerInterval = null;
+        var busyElapsedSecs = 0;
+        var wasUserCancelled = false;
+
+        function stopBusyTimer() {
+            if (busyTimerInterval) {
+                clearInterval(busyTimerInterval);
+                busyTimerInterval = null;
+            }
+            busyElapsedSecs = 0;
+            var tEl = $("#busyTimer");
+            if (tEl) tEl.textContent = "0s";
+            var busyEl = $("#busy");
+            if (busyEl) busyEl.style.display = "none";
+            $("#readBtn").disabled = !file;
+        }
+
+        async function readIt() {
+            if (!file) return;
+            showErr("");
+            $("#readBtn").disabled = true;
+            var busyEl = $("#busy");
+            if (busyEl) busyEl.style.display = "inline-flex";
+
+            busyElapsedSecs = 0;
+            var tEl = $("#busyTimer");
+            if (tEl) tEl.textContent = "0s";
+            if (busyTimerInterval) clearInterval(busyTimerInterval);
+            busyTimerInterval = setInterval(function () {
+                busyElapsedSecs++;
+                if (tEl) tEl.textContent = busyElapsedSecs + "s";
+            }, 1000);
+
+            var fd = new FormData();
+            fd.append(FIELD, file);
+            activeAbortController = new AbortController();
+            wasUserCancelled = false;
+
+            var timeoutTimer = setTimeout(function () {
+                if (activeAbortController) activeAbortController.abort();
+            }, 180000);
+
+            try {
+                var res = await fetch(API, { method: "POST", body: fd, signal: activeAbortController.signal });
+                var text = await res.text(), data = null;
+                try { data = JSON.parse(text) } catch (e) { }
+                if (!res.ok) {
+                    showErr(describe(res.status, data, text));
+                    return;
+                }
+                var srcId = makeSourceId();
+                data.sourceId = srcId;
+                result = data;
+                isSample = false;
+                if (data && data.representation) {
+                    try {
+                        sessionStorage.setItem("flowchart_representation", JSON.stringify(data.representation));
+                        sessionStorage.setItem("flowchart_source", "upload");
+                        sessionStorage.setItem("flowchart_source_id", srcId);
+                    } catch (e) { }
+                }
+                await show();
+                location.hash = "#/result";
+            } catch (e) {
+                if (e.name === "AbortError") {
+                    if (!wasUserCancelled) {
+                        showErr("The request took longer than 3 minutes. Try again in a minute.");
+                    }
+                } else {
+                    showErr("Could not reach the app. Check that the server is running, then try again.");
+                }
+            } finally {
+                clearTimeout(timeoutTimer);
+                stopBusyTimer();
+                activeAbortController = null;
+                wasUserCancelled = false;
+            }
+        }
+        $("#readBtn").addEventListener("click", readIt);
+
+        var cancelReadBtn = $("#cancelReadBtn");
+        if (cancelReadBtn) {
+            cancelReadBtn.addEventListener("click", function () {
+                if (activeAbortController) {
+                    wasUserCancelled = true;
+                    activeAbortController.abort();
+                }
+            });
+        }
+        $("#sampleBtn").addEventListener("click", async function () {
+            var srcId = makeSourceId();
+            result = Object.assign({}, SAMPLE, { sourceId: srcId });
+            isSample = true;
+            try {
+                sessionStorage.setItem("flowchart_representation", JSON.stringify(SAMPLE.representation));
+                sessionStorage.setItem("flowchart_source", "recorded");
+                sessionStorage.setItem("flowchart_source_id", srcId);
+            } catch (e) { }
+            await show(); location.hash = "#/result";
+        });
+        $("#againBtn").addEventListener("click", function () { location.hash = "#/upload" });
+
+        function mermaidSrc(nodes, edges) {
+            var q = function (s) { return String(s).replace(/"/g, "#quot;") }, ok = /^[A-Za-z0-9_]+$/;
+            var shape = { start: function (t) { return '(["' + t + '"])' }, end: function (t) { return '(["' + t + '"])' }, io: function (t) { return '[/"' + t + '"/]' }, dec: function (t) { return '{"' + t + '"}' }, proc: function (t) { return '["' + t + '"]' } };
+            var out = "flowchart TD\n", unsure = [];
+            nodes.forEach(function (n) { if (!ok.test(n.id)) return; out += "  " + n.id + (shape[n.type] || shape.proc)(q(n.text)) + "\n"; if (n.uncertain) unsure.push(n.id); });
+            edges.forEach(function (e) { if (!ok.test(e.from) || !ok.test(e.to)) return; out += "  " + e.from + (e.label ? ' -->|"' + q(e.label) + '"| ' : " --> ") + e.to + "\n"; });
+            if (unsure.length) out += "  classDef unsure fill:#fef3c7,stroke:#f59e0b,color:#92400e\n  class " + unsure.join(",") + " unsure\n";
+            return out;
+        }
+
+        function formatProvider(prov) {
+            if (!prov) return "";
+            var p = String(prov);
+            if (/^gemini/i.test(p)) return p.replace(/^gemini/i, "Gemini");
+            if (/^openai/i.test(p)) return p.replace(/^openai/i, "OpenAI");
+            return p.charAt(0).toUpperCase() + p.slice(1);
+        }
+
+        function validateRep(rep) {
+            if (!rep || !Array.isArray(rep.nodes) || rep.nodes.length === 0) {
+                return { valid: false, reason: "Flowchart contains no nodes" };
+            }
+            var nodes = rep.nodes, edges = Array.isArray(rep.edges) ? rep.edges : [];
+            var startNodes = nodes.filter(function (n) { return n.type === "start"; });
+            if (startNodes.length === 0) return { valid: false, reason: "No start node found in diagram" };
+            if (startNodes.length > 1) return { valid: false, reason: "Multiple start nodes found: " + startNodes.map(function (n) { return n.id; }).join(", ") };
+            var endNodes = nodes.filter(function (n) { return n.type === "end"; });
+            if (endNodes.length === 0) return { valid: false, reason: "No end node found in diagram" };
+
+            var nodeMap = {};
+            nodes.forEach(function (n) { nodeMap[n.id] = true; });
+            for (var i = 0; i < edges.length; i++) {
+                if (!nodeMap[edges[i].from]) return { valid: false, reason: 'Edge references unknown source node: "' + edges[i].from + '" (to "' + edges[i].to + '")' };
+                if (!nodeMap[edges[i].to]) return { valid: false, reason: 'Edge references unknown target node: "' + edges[i].to + '" (from "' + edges[i].from + '")' };
+            }
+
+            var decNodes = nodes.filter(function (n) { return n.type === "dec"; });
+            for (var j = 0; j < decNodes.length; j++) {
+                var out = edges.filter(function (e) { return e.from === decNodes[j].id; });
+                if (out.length < 2) return { valid: false, reason: "Decision node " + decNodes[j].id + " has fewer than 2 outgoing edges (" + out.length + " found)" };
+            }
+
+            var reachable = {};
+            var queue = [startNodes[0].id];
+            reachable[startNodes[0].id] = true;
+            while (queue.length > 0) {
+                var cur = queue.shift();
+                for (var k = 0; k < edges.length; k++) {
+                    if (edges[k].from === cur && nodeMap[edges[k].to] && !reachable[edges[k].to]) {
+                        reachable[edges[k].to] = true;
+                        queue.push(edges[k].to);
+                    }
+                }
+            }
+            for (var m = 0; m < nodes.length; m++) {
+                if (!reachable[nodes[m].id]) {
+                    return { valid: false, reason: "Orphan node unreachable from start: " + nodes[m].id + " (" + nodes[m].type + ' "' + (nodes[m].text || "") + '")' };
+                }
+            }
+            return { valid: true };
+        }
+
+        async function show() {
+            var rep = (result && result.representation) || result || {};
+            var nodes = Array.isArray(rep.nodes) ? rep.nodes : [], edges = Array.isArray(rep.edges) ? rep.edges : [];
+            var note = $("#sampleNote");
+            if (result && result.isEditor) {
+                note.style.display = "block";
+                note.innerHTML = "<strong>Edited diagram.</strong> Edited in the canvas editor.";
+            } else {
+                note.style.display = isSample ? "block" : "none";
+                note.innerHTML = "<strong>Recorded example.</strong> This is a saved result for a sum-of-n flowchart, not your upload.";
+            }
+            var chips = $("#chips"); chips.textContent = "";
+            var info = [];
+            if (result.provider) info.push("Read by " + formatProvider(result.provider));
+            if (typeof result.confidence === "number") info.push("Confidence " + Math.round(result.confidence * 100) + "%");
+            info.push(nodes.length + " boxes", edges.length + " arrows");
+            if (result.truncated) info.push("Reply was cut off, the diagram may be incomplete");
+            info.forEach(function (s) { chips.appendChild(el("span", s, "chip")) });
+
+            // Structural check validation status
+            var val = validateRep(rep);
+            var checkNote = $("#checksPassedNote");
+            if (checkNote) {
+                if (val.valid) {
+                    checkNote.textContent = "All structural checks passed: single start node, valid termination, connected paths, and two-exit decisions.";
+                } else {
+                    checkNote.textContent = "Structural check notice: " + val.reason;
+                }
+            }
+
+            var w = $("#warns"); w.textContent = "";
+            (result.warnings || rep.warnings || []).forEach(function (s) { w.appendChild(el("li", String(s))) });
+            var nb = $("#nodes"); nb.textContent = "";
+            nodes.forEach(function (n) { var r = el("tr"); r.append(el("td", n.id), el("td", KIND[n.type] || n.type), el("td", n.text)); var u = el("td"); if (n.uncertain) u.appendChild(el("mark", "unsure")); r.append(u); nb.appendChild(r) });
+            var eb = $("#edges"); eb.textContent = "";
+            edges.forEach(function (e) { var r = el("tr"); r.append(el("td", e.from), el("td", e.to), el("td", e.label || "")); var u = el("td"); if (e.uncertain) u.appendChild(el("mark", "unsure")); r.append(u); eb.appendChild(r) });
+
+            // Reset to not-generated state on new load
+            var pc = $("#pseudoCard");
+            if (pc) pc.style.display = "none";
+            var cc = $("#complexityCard");
+            if (cc) cc.style.display = "none";
+            var grid = $(".result-main-grid");
+            if (grid) grid.classList.remove("has-pseudo");
+            var genBtn = $("#generatePseudoBtn");
+            var genErr = $("#genErr");
+            if (genErr) genErr.textContent = "";
+            if (genBtn) {
+                genBtn.textContent = "Generate pseudocode";
+                if (!val.valid) {
+                    genBtn.disabled = true;
+                    if (genErr) genErr.textContent = val.reason;
+                } else {
+                    genBtn.disabled = false;
+                }
+            }
+
+            $("#raw").textContent = JSON.stringify(result, null, 2);
+            await drawDiagram(rep, result && result.positions, result && result.edgeSides);
+        }
+
+        async function runGeneration() {
+            if (!result) return;
+            var rep = (result && result.representation) || result;
+            var val = validateRep(rep);
+            var btn = $("#generatePseudoBtn");
+            var genErr = $("#genErr");
+            if (genErr) genErr.textContent = "";
+
+            if (!val.valid) {
+                if (btn) btn.disabled = true;
+                if (genErr) genErr.textContent = val.reason;
+                return;
+            }
+
+            if (btn) btn.disabled = true;
+
+            try {
+                var res = await fetch("/api/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ representation: rep })
+                });
+                var data = await res.json();
+                if (!res.ok) {
+                    var msg = (data && data.error && data.error.message) || data.message || "Could not generate pseudocode.";
+                    if (genErr) genErr.textContent = msg;
+                    return;
+                }
+
+                result.pseudocode = data.pseudocode;
+                $("#pseudo").textContent = data.pseudocode || "";
+
+                var pc = $("#pseudoCard");
+                if (pc) {
+                    pc.style.display = "block";
+                    pc.classList.remove("fade-in");
+                    void pc.offsetWidth; // trigger reflow
+                    pc.classList.add("fade-in");
+                }
+                var grid = $(".result-main-grid");
+                if (grid) grid.classList.add("has-pseudo");
+
+                await updateComplexityPanel(rep);
+
+                var heading = $("#pseudoHeading");
+                if (heading) {
+                    heading.setAttribute("tabindex", "-1");
+                    heading.focus();
+                }
+
+                var announce = $("#pseudoAnnounce");
+                if (announce) announce.textContent = "Pseudocode generated";
+
+                if (btn) btn.textContent = "Regenerate";
+            } catch (err) {
+                if (genErr) genErr.textContent = "Network error: could not connect to local server.";
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        async function updateComplexityPanel(rep) {
+            var cc = $("#complexityCard");
+            if (!cc) return;
+            try {
+                var mod = window.ComplexityCore;
+                if (!mod) {
+                    mod = await import("/js/complexity-core.js");
+                }
+                var analysis = mod.analyzeComplexity(rep);
+                var timeVal = $("#complexityTimeVal");
+                var timeReason = $("#complexityTimeReason");
+                var spaceVal = $("#complexitySpaceVal");
+                var spaceReason = $("#complexitySpaceReason");
+                var badge = $("#complexityBadge");
+                var loopsList = $("#complexityLoopsList");
+
+                if (timeVal) {
+                    if (analysis.time.status === "unknown") {
+                        timeVal.innerHTML = '<span class="complexity-unknown-icon" aria-hidden="true">&#9888;</span> ' + analysis.time.label;
+                        timeVal.classList.add("is-unknown");
+                    } else {
+                        timeVal.textContent = analysis.time.label;
+                        timeVal.classList.remove("is-unknown");
+                    }
+                }
+                if (timeReason) timeReason.textContent = (analysis.time.reasons && analysis.time.reasons[0]) || "";
+
+                if (spaceVal) {
+                    if (analysis.space.status === "unknown") {
+                        spaceVal.innerHTML = '<span class="complexity-unknown-icon" aria-hidden="true">&#9888;</span> ' + analysis.space.label;
+                        spaceVal.classList.add("is-unknown");
+                    } else {
+                        spaceVal.textContent = analysis.space.label;
+                        spaceVal.classList.remove("is-unknown");
+                    }
+                }
+                if (spaceReason) spaceReason.textContent = (analysis.space.reasons && analysis.space.reasons[0]) || "";
+
+                if (badge) {
+                    if (analysis.time.status === "unknown" && analysis.space.status === "unknown") {
+                        badge.textContent = "Indeterminate";
+                        badge.className = "badge complexity-badge badge-unknown";
+                    } else {
+                        badge.textContent = "Estimated";
+                        badge.className = "badge complexity-badge badge-estimated";
+                    }
+                }
+
+                if (loopsList) {
+                    loopsList.textContent = "";
+                    if (!analysis.loops || analysis.loops.length === 0) {
+                        var p = document.createElement("p");
+                        p.className = "mute";
+                        p.style.margin = "0";
+                        p.textContent = "No loops detected in the diagram (straight-line control flow; O(1) time).";
+                        loopsList.appendChild(p);
+                    } else {
+                        var ul = document.createElement("ul");
+                        ul.className = "complexity-loops-ul";
+                        analysis.loops.forEach(function (l) {
+                            var li = document.createElement("li");
+                            li.innerHTML = '<strong>Header ' + l.headerId + '</strong> (boxes ' + l.bodyIds.join(", ") + '): ' +
+                                '<span class="complexity-pill">' + l.pattern + '</span> ' +
+                                (l.variable ? 'on variable <code>' + l.variable + '</code> ' : '') +
+                                (l.bound ? 'against bound <em>' + l.bound + '</em>. ' : '') +
+                                '<span class="complexity-rule-text">Rule applied: ' + l.note + '</span>';
+                            ul.appendChild(li);
+                        });
+                        loopsList.appendChild(ul);
+                    }
+                }
+
+                cc.style.display = "block";
+                cc.classList.remove("fade-in");
+                void cc.offsetWidth; // trigger reflow
+                cc.classList.add("fade-in");
+            } catch (err) {
+                console.warn("Complexity analysis failed:", err);
+            }
+        }
+
+        var genPseudoBtn = $("#generatePseudoBtn");
+        if (genPseudoBtn) {
+            genPseudoBtn.addEventListener("click", runGeneration);
+        }
+
+        async function getMermaid() {
+            if (window.mermaid) {
+                if (!window._mermaidInitialized) {
+                    window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "neutral" });
+                    window._mermaidInitialized = true;
+                }
+                return window.mermaid;
+            }
+            return new Promise(function (resolve, reject) {
+                var s = document.createElement("script");
+                s.src = MERMAID_FALLBACK;
+                s.onload = function () {
+                    if (window.mermaid) {
+                        window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "neutral" });
+                        window._mermaidInitialized = true;
+                        resolve(window.mermaid);
+                    } else {
+                        reject(new Error("Mermaid global not found"));
+                    }
+                };
+                s.onerror = function () {
+                    reject(new Error("Failed to load Mermaid"));
+                };
+                document.head.appendChild(s);
+            });
+        }
+
+        async function drawDiagram(rep, savedPositions, savedEdgeSides) {
+            var box = $("#diagram");
+            try {
+                if (!savedPositions && result && result.isEditor) {
+                    try {
+                        var autosaved = sessionStorage.getItem("flowchart_editor_state");
+                        if (autosaved) {
+                            var parsed = JSON.parse(autosaved);
+                            if (parsed && parsed.positions) {
+                                savedPositions = parsed.positions;
+                                savedEdgeSides = parsed.edgeSides;
+                            }
+                        }
+                    } catch (e) { }
+                }
+                var dv = window.DiagramView;
+                if (!dv) {
+                    dv = await import("/js/diagram-view.js");
+                }
+                var layout = dv.resolveDiagramLayout(rep, savedPositions, savedEdgeSides);
+                var svg = dv.renderDiagramSvg(rep, layout.positions, layout.edgeSides);
+                box.innerHTML = svg;
+            } catch (err) {
+                console.warn("DiagramView render failed, falling back to Mermaid:", err);
+                var nodes = Array.isArray(rep && rep.nodes) ? rep.nodes : [];
+                var edges = Array.isArray(rep && rep.edges) ? rep.edges : [];
+                await draw(mermaidSrc(nodes, edges));
+            }
+        }
+
+        async function draw(src) {
+            var box = $("#diagram"); box.textContent = "";
+            try {
+                var mer = await getMermaid();
+                var r = await mer.render("d" + Date.now(), src); box.innerHTML = r.svg;
+            } catch (e) {
+                box.appendChild(el("p", "The picture could not be drawn here (it needs an internet connection). The tables below hold the same information.", "mute"));
+            }
+        }
+        route();
+        // Clear accidental initial focus from browser load so mouse users see no focus ring on brand link
+        if (document.activeElement && document.activeElement !== document.body) {
+            document.activeElement.blur();
+        }
+
+        var copyBtn = $("#copyPseudoBtnIndex");
+        if (copyBtn) {
+            copyBtn.addEventListener("click", async function () {
+                var psText = $("#pseudo").textContent;
+                if (!psText) return;
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(psText);
+                    } else {
+                        var ta = document.createElement("textarea");
+                        ta.value = psText;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(ta);
+                    }
+                    var orig = copyBtn.textContent;
+                    copyBtn.textContent = "Copied!";
+                    setTimeout(function () { copyBtn.textContent = orig; }, 1500);
+                } catch (e) { }
+            });
+        }
+
+        // Reuse sample handler for hero button without duplicating logic
+        var heroSampleBtn = $("#heroSampleBtn");
+        if (heroSampleBtn) {
+            heroSampleBtn.addEventListener("click", function () {
+                $("#sampleBtn").click();
+            });
+        }
+
+        // Theme Switcher Logic
+        function applyTheme(theme) {
+            if (theme !== "light" && theme !== "dark") theme = "system";
+            document.documentElement.setAttribute("data-theme", theme);
+            try {
+                localStorage.setItem("sketchpiler_theme", theme);
+            } catch (e) { }
+            document.querySelectorAll(".theme-btn").forEach(function (btn) {
+                var active = btn.getAttribute("data-theme-val") === theme;
+                btn.setAttribute("aria-pressed", active ? "true" : "false");
+                btn.classList.toggle("active", active);
+            });
+        }
+
+        document.querySelectorAll(".theme-btn").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                applyTheme(btn.getAttribute("data-theme-val"));
+            });
+        });
+
+        try {
+            var initialTheme = localStorage.getItem("sketchpiler_theme") || "system";
+            applyTheme(initialTheme);
+        } catch (e) {
+            applyTheme("system");
+        }
+    </script>
+</body>
+
+</html>
