@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<!-- Tabular node and edge list editor for inspecting and editing Sketchpiler flowcharts. -->
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Flowchart Editor - Sketch to pseudocode</title>
+    <script src="/vendor/mermaid.min.js"></script>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+
+<body>
+    <header>
+        <a class="brand" href="/">Sketch to pseudocode</a>
+        <nav class="nav-links" aria-label="Navigation">
+            <a href="/">Demo &amp; Upload</a>
+            <a class="active" href="/editor.html">Flowchart Editor</a>
+        </nav>
+    </header>
+    <main>
+        <h1>Flowchart Review &amp; Editor</h1>
+        <p class="mute">Edit boxes and arrows, change connections, and review live pseudocode generated from your representation.</p>
+
+        <div class="toolbar">
+            <button class="btn alt" id="resetBtn" type="button">Reset to original</button>
+            <button class="btn" id="copyPseudoBtn" type="button">Copy pseudocode</button>
+            <span class="chip" id="sourceLabel" style="font-weight:600">Sample diagram</span>
+            <span class="status-sync" id="syncStatus">Ready</span>
+        </div>
+
+        <div class="chips" id="chips"></div>
+        <ul class="warn" id="warns"></ul>
+        <div class="err" id="err" role="alert"></div>
+
+        <div class="card" style="margin-top: 12px">
+            <div class="card-header">
+                <strong>Live Diagram</strong>
+            </div>
+            <div id="diagram" aria-live="polite"></div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+            <div class="card-header">
+                <strong>Generated Pseudocode</strong>
+            </div>
+            <pre id="pseudo"></pre>
+        </div>
+
+        <div class="cols">
+            <div class="card wrap">
+                <div class="card-header">
+                    <strong>Boxes</strong>
+                    <button class="btn alt sm" id="addBoxBtn" type="button">+ Add Box</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:50px">Id</th>
+                            <th style="width:130px">Kind</th>
+                            <th>Text</th>
+                            <th style="width:60px">Status</th>
+                            <th style="width:60px">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="nodesTable"></tbody>
+                </table>
+            </div>
+
+            <div class="card wrap">
+                <div class="card-header">
+                    <strong>Arrows</strong>
+                    <button class="btn alt sm" id="addArrowBtn" type="button">+ Add Arrow</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:80px">From</th>
+                            <th style="width:80px">To</th>
+                            <th>Label</th>
+                            <th style="width:60px">Status</th>
+                            <th style="width:60px">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="edgesTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        var API_GENERATE = "/api/generate";
+        var MERMAID_FALLBACK = "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js";
+
+        // Initial default representation (01_sum_of_n fixture)
+        var DEFAULT_REP = {
+            schemaVersion: 1,
+            type: "flowchart",
+            nodes: [
+                { id: "N1", type: "start", text: "Start", uncertain: false },
+                { id: "N2", type: "io", text: "Input n", uncertain: false },
+                { id: "N3", type: "proc", text: "sum = 0, i = 1", uncertain: false },
+                { id: "N4", type: "dec", text: "i <= n ?", uncertain: false },
+                { id: "N5", type: "proc", text: "sum = sum + i; i = i + 1", uncertain: false },
+                { id: "N6", type: "io", text: "Display sum", uncertain: false },
+                { id: "N7", type: "end", text: "End", uncertain: false }
+            ],
+            edges: [
+                { from: "N1", to: "N2", label: null, uncertain: false },
+                { from: "N2", to: "N3", label: null, uncertain: false },
+                { from: "N3", to: "N4", label: null, uncertain: false },
+                { from: "N4", to: "N5", label: "YES", uncertain: false },
+                { from: "N4", to: "N6", label: "NO", uncertain: false },
+                { from: "N5", to: "N4", label: null, uncertain: false },
+                { from: "N6", to: "N7", label: null, uncertain: false }
+            ]
+        };
+
+        var KIND_OPTIONS = [
+            { value: "start", label: "Start" },
+            { value: "end", label: "End" },
+            { value: "proc", label: "Step" },
+            { value: "io", label: "Input / Output" },
+            { value: "dec", label: "Decision" }
+        ];
+
+        // Working state
+        var currentRep = null;
+        var originalRep = null;
+        var mer = null;
+        var debounceTimer = null;
+        var lastGeneratedPseudocode = "";
+
+        var $ = function (s) { return document.querySelector(s); };
+
+        function clone(obj) {
+            return JSON.parse(JSON.stringify(obj));
+        }
+
+        function initData() {
+            var saved = null, source = null;
+            try {
+                var raw = sessionStorage.getItem("flowchart_representation");
+                if (raw) saved = JSON.parse(raw);
+                source = sessionStorage.getItem("flowchart_source");
+            } catch (e) { }
+
+            if (saved && Array.isArray(saved.nodes) && Array.isArray(saved.edges)) {
+                originalRep = clone(saved);
+                currentRep = clone(saved);
+                if (source === "upload") {
+                    $("#sourceLabel").textContent = "Loaded from your last upload";
+                } else if (source === "recorded") {
+                    $("#sourceLabel").textContent = "Recorded example";
+                } else {
+                    $("#sourceLabel").textContent = "Sample diagram";
+                }
+            } else {
+                originalRep = clone(DEFAULT_REP);
+                currentRep = clone(DEFAULT_REP);
+                $("#sourceLabel").textContent = "Sample diagram";
+            }
+        }
+
+        function isNodeEdited(node) {
+            if (node._isNew) return "new";
+            var orig = originalRep.nodes.find(function (n) { return n.id === node.id; });
+            if (!orig) return "new";
+            if (orig.type !== node.type || orig.text !== node.text) return "edited";
+            return "";
+        }
+
+        function isEdgeEdited(edge, idx) {
+            if (edge._isNew) return "new";
+            var orig = originalRep.edges[idx];
+            if (!orig) return "new";
+            var curLabel = (edge.label || "").trim();
+            var origLabel = (orig.label || "").trim();
+            if (orig.from !== edge.from || orig.to !== edge.to || origLabel !== curLabel) {
+                return "edited";
+            }
+            return "";
+        }
+
+        function renderTables() {
+            var nodeIds = currentRep.nodes.map(function (n) { return n.id; });
+
+            // 1. Render Nodes table
+            var nb = $("#nodesTable");
+            nb.innerHTML = "";
+            currentRep.nodes.forEach(function (node, idx) {
+                var status = isNodeEdited(node);
+                var tr = document.createElement("tr");
+                if (status) tr.className = "row-edited";
+
+                // Id
+                var tdId = document.createElement("td");
+                tdId.textContent = node.id;
+                tdId.style.fontWeight = "600";
+                tr.appendChild(tdId);
+
+                // Kind select
+                var tdKind = document.createElement("td");
+                var selKind = document.createElement("select");
+                selKind.className = "cell-select";
+                KIND_OPTIONS.forEach(function (opt) {
+                    var o = document.createElement("option");
+                    o.value = opt.value;
+                    o.textContent = opt.label;
+                    if (opt.value === node.type) o.selected = true;
+                    selKind.appendChild(o);
+                });
+                selKind.addEventListener("change", function () {
+                    node.type = selKind.value;
+                    renderTables();
+                    scheduleGenerate();
+                });
+                tdKind.appendChild(selKind);
+                tr.appendChild(tdKind);
+
+                // Text input
+                var tdText = document.createElement("td");
+                var inpText = document.createElement("input");
+                inpText.type = "text";
+                inpText.className = "cell-input";
+                inpText.value = node.text;
+                inpText.addEventListener("input", function () {
+                    node.text = inpText.value;
+                    renderStatusTag(tdStatus, isNodeEdited(node), tr);
+                    scheduleGenerate();
+                });
+                tdText.appendChild(inpText);
+                tr.appendChild(tdText);
+
+                // Status
+                var tdStatus = document.createElement("td");
+                renderStatusTag(tdStatus, status, tr);
+                tr.appendChild(tdStatus);
+
+                // Action (Delete)
+                var tdAction = document.createElement("td");
+                var delBtn = document.createElement("button");
+                delBtn.className = "btn danger sm";
+                delBtn.textContent = "Del";
+                delBtn.type = "button";
+                delBtn.title = "Delete box and connecting arrows";
+                delBtn.addEventListener("click", function () {
+                    if (confirm("Delete box " + node.id + " and all its connecting arrows?")) {
+                        deleteNode(node.id);
+                    }
+                });
+                tdAction.appendChild(delBtn);
+                tr.appendChild(tdAction);
+
+                nb.appendChild(tr);
+            });
+
+            // 2. Render Edges table
+            var eb = $("#edgesTable");
+            eb.innerHTML = "";
+            currentRep.edges.forEach(function (edge, idx) {
+                var status = isEdgeEdited(edge, idx);
+                var tr = document.createElement("tr");
+                if (status) tr.className = "row-edited";
+
+                // From select
+                var tdFrom = document.createElement("td");
+                var selFrom = document.createElement("select");
+                selFrom.className = "cell-select";
+                nodeIds.forEach(function (id) {
+                    var o = document.createElement("option");
+                    o.value = id;
+                    o.textContent = id;
+                    if (id === edge.from) o.selected = true;
+                    selFrom.appendChild(o);
+                });
+                selFrom.addEventListener("change", function () {
+                    edge.from = selFrom.value;
+                    renderTables();
+                    scheduleGenerate();
+                });
+                tdFrom.appendChild(selFrom);
+                tr.appendChild(tdFrom);
+
+                // To select
+                var tdTo = document.createElement("td");
+                var selTo = document.createElement("select");
+                selTo.className = "cell-select";
+                nodeIds.forEach(function (id) {
+                    var o = document.createElement("option");
+                    o.value = id;
+                    o.textContent = id;
+                    if (id === edge.to) o.selected = true;
+                    selTo.appendChild(o);
+                });
+                selTo.addEventListener("change", function () {
+                    edge.to = selTo.value;
+                    renderTables();
+                    scheduleGenerate();
+                });
+                tdTo.appendChild(selTo);
+                tr.appendChild(tdTo);
+
+                // Label input
+                var tdLabel = document.createElement("td");
+                var inpLabel = document.createElement("input");
+                inpLabel.type = "text";
+                inpLabel.className = "cell-input";
+                inpLabel.value = edge.label || "";
+                inpLabel.placeholder = "(none)";
+                inpLabel.addEventListener("input", function () {
+                    edge.label = inpLabel.value.trim() ? inpLabel.value.trim() : null;
+                    renderStatusTag(tdStatus, isEdgeEdited(edge, idx), tr);
+                    scheduleGenerate();
+                });
+                tdLabel.appendChild(inpLabel);
+                tr.appendChild(tdLabel);
+
+                // Status
+                var tdStatus = document.createElement("td");
+                renderStatusTag(tdStatus, status, tr);
+                tr.appendChild(tdStatus);
+
+                // Action (Delete)
+                var tdAction = document.createElement("td");
+                var delBtn = document.createElement("button");
+                delBtn.className = "btn danger sm";
+                delBtn.textContent = "Del";
+                delBtn.type = "button";
+                delBtn.title = "Delete arrow";
+                delBtn.addEventListener("click", function () {
+                    deleteEdge(idx);
+                });
+                tdAction.appendChild(delBtn);
+                tr.appendChild(tdAction);
+
+                eb.appendChild(tr);
+            });
+        }
+
+        function renderStatusTag(td, status, tr) {
+            td.innerHTML = "";
+            if (status === "new") {
+                var s = document.createElement("span");
+                s.className = "tag-status tag-new";
+                s.textContent = "new";
+                td.appendChild(s);
+                if (tr) tr.classList.add("row-edited");
+            } else if (status === "edited") {
+                var s = document.createElement("span");
+                s.className = "tag-status tag-edited";
+                s.textContent = "edited";
+                td.appendChild(s);
+                if (tr) tr.classList.add("row-edited");
+            } else {
+                if (tr) tr.classList.remove("row-edited");
+            }
+        }
+
+        function deleteNode(nodeId) {
+            // Remove node
+            currentRep.nodes = currentRep.nodes.filter(function (n) { return n.id !== nodeId; });
+            // Remove connected edges
+            currentRep.edges = currentRep.edges.filter(function (e) {
+                return e.from !== nodeId && e.to !== nodeId;
+            });
+            renderTables();
+            scheduleGenerate();
+        }
+
+        function deleteEdge(index) {
+            currentRep.edges.splice(index, 1);
+            renderTables();
+            scheduleGenerate();
+        }
+
+        function getNextBoxId() {
+            var maxId = 0;
+            currentRep.nodes.forEach(function (n) {
+                var m = n.id.match(/^N(\d+)$/i);
+                if (m) {
+                    var val = parseInt(m[1], 10);
+                    if (val > maxId) maxId = val;
+                }
+            });
+            return "N" + (maxId + 1);
+        }
+
+        function addBox() {
+            var newId = getNextBoxId();
+            currentRep.nodes.push({
+                id: newId,
+                type: "proc",
+                text: "New step",
+                uncertain: false,
+                _isNew: true
+            });
+            renderTables();
+            scheduleGenerate();
+        }
+
+        function addArrow() {
+            if (currentRep.nodes.length === 0) {
+                alert("Add at least one box first.");
+                return;
+            }
+            var from = currentRep.nodes[0].id;
+            var to = currentRep.nodes.length > 1 ? currentRep.nodes[1].id : currentRep.nodes[0].id;
+            currentRep.edges.push({
+                from: from,
+                to: to,
+                label: null,
+                uncertain: false,
+                _isNew: true
+            });
+            renderTables();
+            scheduleGenerate();
+        }
+
+        function resetToOriginal() {
+            currentRep = clone(originalRep);
+            renderTables();
+            scheduleGenerate();
+        }
+
+        function scheduleGenerate() {
+            clearTimeout(debounceTimer);
+            $("#syncStatus").textContent = "Typing...";
+            debounceTimer = setTimeout(callGenerate, 300);
+        }
+
+        function cleanRepForApi() {
+            return {
+                schemaVersion: 1,
+                type: "flowchart",
+                nodes: currentRep.nodes.map(function (n) {
+                    return {
+                        id: n.id,
+                        type: n.type,
+                        text: n.text,
+                        uncertain: Boolean(n.uncertain)
+                    };
+                }),
+                edges: currentRep.edges.map(function (e) {
+                    return {
+                        from: e.from,
+                        to: e.to,
+                        label: e.label || null,
+                        uncertain: Boolean(e.uncertain)
+                    };
+                })
+            };
+        }
+
+        async function getMermaid() {
+            if (window.mermaid) {
+                if (!window._mermaidInitialized) {
+                    window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "neutral" });
+                    window._mermaidInitialized = true;
+                }
+                return window.mermaid;
+            }
+            return new Promise(function (resolve, reject) {
+                var s = document.createElement("script");
+                s.src = MERMAID_FALLBACK;
+                s.onload = function () {
+                    if (window.mermaid) {
+                        window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "neutral" });
+                        window._mermaidInitialized = true;
+                        resolve(window.mermaid);
+                    } else {
+                        reject(new Error("Mermaid global not found"));
+                    }
+                };
+                s.onerror = function () {
+                    reject(new Error("Failed to load Mermaid"));
+                };
+                document.head.appendChild(s);
+            });
+        }
+
+        async function draw(mermaidSrc) {
+            var box = $("#diagram");
+            box.textContent = "";
+            try {
+                var mer = await getMermaid();
+                var r = await mer.render("ed" + Date.now(), mermaidSrc);
+                box.innerHTML = r.svg;
+            } catch (e) {
+                box.innerHTML = '<p class="mute">The picture could not be drawn here (it needs an internet connection). The tables below hold the same information.</p>';
+            }
+        }
+
+        async function callGenerate() {
+            var errEl = $("#err");
+            errEl.style.display = "none";
+            $("#syncStatus").textContent = "Generating...";
+
+            try {
+                var payload = { representation: cleanRepForApi() };
+                var res = await fetch(API_GENERATE, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                var data = await res.json();
+                if (!res.ok) {
+                    var msg = (data && data.error && data.error.message) || ("Server error (" + res.status + ")");
+                    errEl.textContent = "Error: " + msg;
+                    errEl.style.display = "block";
+                    $("#syncStatus").textContent = "Error";
+                    return;
+                }
+
+                // 1. Render Mermaid diagram using server-returned mermaid string
+                if (data.mermaid) {
+                    await draw(data.mermaid);
+                }
+
+                // 2. Render pseudocode
+                lastGeneratedPseudocode = data.pseudocode || "";
+                $("#pseudo").textContent = lastGeneratedPseudocode;
+
+                // 3. Render warnings
+                var warnList = $("#warns");
+                warnList.innerHTML = "";
+                if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+                    data.warnings.forEach(function (w) {
+                        var li = document.createElement("li");
+                        li.textContent = w;
+                        warnList.appendChild(li);
+                    });
+                }
+
+                // 4. Render Chips
+                var chips = $("#chips");
+                chips.innerHTML = "";
+                var chipItems = [];
+                chipItems.push({
+                    text: data.valid ? "Valid flowchart" : "Invalid structure",
+                    cls: data.valid ? "valid" : "invalid"
+                });
+                if (typeof data.confidence === "number") {
+                    chipItems.push({ text: "Confidence " + Math.round(data.confidence * 100) + "%" });
+                }
+                chipItems.push({ text: currentRep.nodes.length + " boxes" });
+                chipItems.push({ text: currentRep.edges.length + " arrows" });
+                chipItems.forEach(function (ci) {
+                    var span = document.createElement("span");
+                    span.className = "chip" + (ci.cls ? " " + ci.cls : "");
+                    span.textContent = ci.text;
+                    chips.appendChild(span);
+                });
+
+                $("#syncStatus").textContent = "Updated";
+            } catch (err) {
+                errEl.textContent = "Could not reach the server. Make sure the server is running.";
+                errEl.style.display = "block";
+                $("#syncStatus").textContent = "Connection error";
+            }
+        }
+
+        async function copyPseudocode() {
+            var btn = $("#copyPseudoBtn");
+            if (!lastGeneratedPseudocode) return;
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(lastGeneratedPseudocode);
+                } else {
+                    var ta = document.createElement("textarea");
+                    ta.value = lastGeneratedPseudocode;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(ta);
+                }
+                var origText = btn.textContent;
+                btn.textContent = "Copied!";
+                setTimeout(function () { btn.textContent = origText; }, 1500);
+            } catch (e) {
+                alert("Failed to copy pseudocode to clipboard.");
+            }
+        }
+
+        // Event Listeners
+        $("#addBoxBtn").addEventListener("click", addBox);
+        $("#addArrowBtn").addEventListener("click", addArrow);
+        $("#resetBtn").addEventListener("click", resetToOriginal);
+        $("#copyPseudoBtn").addEventListener("click", copyPseudocode);
+
+        // Initialize and first generation call
+        initData();
+        renderTables();
+        callGenerate();
+    </script>
+</body>
+
+</html>
