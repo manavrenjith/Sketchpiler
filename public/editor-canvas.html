@@ -1,0 +1,3423 @@
+<!DOCTYPE html>
+<!-- Interactive canvas editor for drawing, connecting, and arranging Sketchpiler flowcharts. -->
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Canvas editor - Sketchpiler</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='8' width='10' height='16' rx='3' fill='none' stroke='%230071e3' stroke-width='2.5'/%3E%3Cpath d='M13 16h6' stroke='%230071e3' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M17 13l3.5 3-3.5 3' fill='%230071e3'/%3E%3Cpolygon points='25,9 31,16 25,23 19,16' fill='none' stroke='%230071e3' stroke-width='2.5' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem("sketchpiler_theme");
+                if (t === "light" || t === "dark") {
+                    document.documentElement.setAttribute("data-theme", t);
+                } else {
+                    document.documentElement.setAttribute("data-theme", "system");
+                }
+            } catch (e) { }
+        })();
+    </script>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        /* ==========================================================================
+           keep in sync with styles.css
+           Apple-Inspired Design Tokens & System
+           ========================================================================== */
+
+        :root,
+        [data-theme="light"] {
+            /* Color Palette - Light Appearance */
+            --bg: #f5f5f7;                       /* System grouped background light */
+            --surface: #ffffff;                  /* Secondary grouped background / card */
+            --surface-secondary: #f0f0f4;        /* Tertiary grouped background */
+            --surface-elevated: #ffffff;         /* Elevated surface */
+            
+            --border: rgba(0, 0, 0, 0.08);       /* System separator / hairline */
+            --border-subtle: rgba(0, 0, 0, 0.05);
+            --border-strong: rgba(0, 0, 0, 0.16);
+            
+            --text: #1d1d1f;                     /* Primary label - 16:1 contrast against white */
+            --muted: #6e6e73;                    /* Secondary label - 5.0:1 contrast (WCAG AA compliant) */
+            --tertiary: #86868b;                 /* Tertiary label */
+            
+            --accent: #0071e3;                   /* Apple system blue - primary action */
+            --accent-hover: #0077ed;
+            --accent-subtle: rgba(0, 113, 227, 0.08);
+            --accent-focus: rgba(0, 113, 227, 0.35);
+
+            /* Semantic Signals */
+            --ok-text: #1b5e20;
+            --ok-bg: #e8f5e9;
+            --ok-border: #c8e6c9;
+
+            --warn-text: #8a4f00;
+            --warn-bg: #fff8e1;
+            --warn-border: #ffe082;
+
+            --bad-text: #c62828;
+            --bad-bg: #ffebee;
+            --bad-border: #ffcdd2;
+
+            --info-bg: #eef5fc;
+            --info-border: #cbe1f7;
+            --info-text: #185abc;
+
+            /* Header Chrome */
+            --header-bg: rgba(255, 255, 255, 0.82);
+
+            /* Shape Tints (Subtle fills with distinct shapes as primary cue) */
+            --tint-terminal-bg: rgba(52, 199, 89, 0.08);
+            --tint-terminal-border: rgba(52, 199, 89, 0.45);
+            --tint-proc-bg: #ffffff;
+            --tint-proc-border: rgba(0, 0, 0, 0.16);
+            --tint-io-bg: rgba(88, 86, 214, 0.08);
+            --tint-io-border: rgba(88, 86, 214, 0.45);
+            --tint-dec-bg: rgba(255, 149, 0, 0.08);
+            --tint-dec-border: rgba(255, 149, 0, 0.45);
+
+            /* Grid & Canvas */
+            --grid-dot: rgba(0, 0, 0, 0.12);
+            --edge-stroke: #6e6e73;
+            --edge-hover: #1d1d1f;
+
+            /* Typography Scale */
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+            /* Spacing Scale */
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+            --space-8: 32px;
+            --space-10: 40px;
+            --space-12: 48px;
+            --space-16: 64px;
+
+            /* Radii Scale */
+            --radius-xs: 4px;
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 18px;
+            --radius-xl: 24px;
+            --radius-full: 9999px;
+            --radius: 14px;
+
+            /* Shadows */
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+            --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
+            --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.08);
+            --shadow: var(--shadow-sm);
+
+            /* Motion & Transitions */
+            --duration-press: 120ms;
+            --duration-hover: 150ms;
+            --duration-view: 200ms;
+            --ease-apple: cubic-bezier(0.2, 0, 0, 1);
+            color-scheme: light;
+        }
+
+        /* Dark Mode Appearance (Apple HIG Dark Mode) */
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #000000;                   /* System background base dark */
+                --surface: #1c1c1e;              /* Secondary grouped background / card */
+                --surface-secondary: #2c2c2e;    /* Tertiary background dark */
+                --surface-elevated: #2c2c2e;
+
+                --border: rgba(255, 255, 255, 0.12);
+                --border-subtle: rgba(255, 255, 255, 0.08);
+                --border-strong: rgba(255, 255, 255, 0.24);
+
+                --text: #f5f5f7;                 /* Primary label dark - 14:1 contrast */
+                --muted: #98989d;                /* Secondary label dark - 5.2:1 contrast */
+                --tertiary: #636366;
+
+                --accent: #2997ff;               /* Apple system blue dark */
+                --accent-hover: #40a5ff;
+                --accent-subtle: rgba(41, 151, 255, 0.15);
+                --accent-focus: rgba(41, 151, 255, 0.45);
+
+                --ok-text: #30d158;
+                --ok-bg: rgba(48, 209, 88, 0.14);
+                --ok-border: rgba(48, 209, 88, 0.3);
+
+                --warn-text: #ffd60a;
+                --warn-bg: rgba(255, 214, 10, 0.14);
+                --warn-border: rgba(255, 214, 10, 0.3);
+
+                --bad-text: #ff453a;
+                --bad-bg: rgba(255, 69, 58, 0.14);
+                --bad-border: rgba(255, 69, 58, 0.3);
+
+                --info-bg: rgba(41, 151, 255, 0.12);
+                --info-border: rgba(41, 151, 255, 0.3);
+                --info-text: #64b5f6;
+
+                --header-bg: rgba(28, 28, 30, 0.82);
+
+                --tint-terminal-bg: rgba(48, 209, 88, 0.14);
+                --tint-terminal-border: rgba(48, 209, 88, 0.45);
+                --tint-proc-bg: #1c1c1e;
+                --tint-proc-border: rgba(255, 255, 255, 0.22);
+                --tint-io-bg: rgba(94, 92, 230, 0.16);
+                --tint-io-border: rgba(94, 92, 230, 0.5);
+                --tint-dec-bg: rgba(255, 159, 10, 0.16);
+                --tint-dec-border: rgba(255, 159, 10, 0.5);
+
+                --grid-dot: rgba(255, 255, 255, 0.14);
+                --edge-stroke: #98989d;
+                --edge-hover: #f5f5f7;
+
+                --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+                --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.45);
+                --shadow-lg: 0 8px 36px rgba(0, 0, 0, 0.6);
+                color-scheme: dark;
+            }
+        }
+
+        /* Explicit data-theme="dark" overrides any media query */
+        [data-theme="dark"] {
+            --bg: #000000;
+            --surface: #1c1c1e;
+            --surface-secondary: #2c2c2e;
+            --surface-elevated: #2c2c2e;
+
+            --border: rgba(255, 255, 255, 0.12);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-strong: rgba(255, 255, 255, 0.24);
+
+            --text: #f5f5f7;
+            --muted: #98989d;
+            --tertiary: #636366;
+
+            --accent: #2997ff;
+            --accent-hover: #40a5ff;
+            --accent-subtle: rgba(41, 151, 255, 0.15);
+            --accent-focus: rgba(41, 151, 255, 0.45);
+
+            --ok-text: #30d158;
+            --ok-bg: rgba(48, 209, 88, 0.14);
+            --ok-border: rgba(48, 209, 88, 0.3);
+
+            --warn-text: #ffd60a;
+            --warn-bg: rgba(255, 214, 10, 0.14);
+            --warn-border: rgba(255, 214, 10, 0.3);
+
+            --bad-text: #ff453a;
+            --bad-bg: rgba(255, 69, 58, 0.14);
+            --bad-border: rgba(255, 69, 58, 0.3);
+
+            --info-bg: rgba(41, 151, 255, 0.12);
+            --info-border: rgba(41, 151, 255, 0.3);
+            --info-text: #64b5f6;
+
+            --header-bg: rgba(28, 28, 30, 0.82);
+
+            --tint-terminal-bg: rgba(48, 209, 88, 0.14);
+            --tint-terminal-border: rgba(48, 209, 88, 0.45);
+            --tint-proc-bg: #1c1c1e;
+            --tint-proc-border: rgba(255, 255, 255, 0.22);
+            --tint-io-bg: rgba(94, 92, 230, 0.16);
+            --tint-io-border: rgba(94, 92, 230, 0.5);
+            --tint-dec-bg: rgba(255, 159, 10, 0.16);
+            --tint-dec-border: rgba(255, 159, 10, 0.5);
+
+            --grid-dot: rgba(255, 255, 255, 0.14);
+            --edge-stroke: #98989d;
+            --edge-hover: #f5f5f7;
+
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.45);
+            --shadow-lg: 0 8px 36px rgba(0, 0, 0, 0.6);
+            color-scheme: dark;
+        }
+
+        /* Accessibility: Preferences */
+        @media (prefers-reduced-motion: reduce) {
+            *, ::before, ::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+            }
+        }
+
+        @media (prefers-reduced-transparency: reduce) {
+            header {
+                background: var(--surface) !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+        }
+
+        @media (prefers-contrast: more) {
+            :root, [data-theme="light"] {
+                --border: rgba(0, 0, 0, 0.35);
+                --border-strong: rgba(0, 0, 0, 0.6);
+                --muted: #3a3a3c;
+            }
+            [data-theme="dark"],
+            :root:not([data-theme="light"]) {
+                --border: rgba(255, 255, 255, 0.35);
+                --border-strong: rgba(255, 255, 255, 0.6);
+                --muted: #d1d1d6;
+            }
+        }
+
+        /* Base Shell */
+        html,
+        body {
+            height: 100vh;
+            max-height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+            margin: 0;
+            color: var(--text);
+            font-family: var(--font-sans);
+            font-size: 14px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        header {
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            width: 100%;
+            background: var(--header-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid var(--border);
+            transition: background-color var(--duration-hover) ease;
+        }
+
+        .header-inner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: var(--space-4);
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 8px 18px;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.15rem;
+            line-height: 1.25;
+            letter-spacing: -0.015em;
+            text-decoration: none;
+            color: var(--text);
+            transition: opacity var(--duration-hover) ease;
+            user-select: none;
+        }
+
+        .brand:hover {
+            opacity: 0.85;
+        }
+
+        .brand:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 4px;
+            border-radius: var(--radius-sm);
+        }
+
+        .brand-mark {
+            display: block;
+            flex-shrink: 0;
+            transition: transform var(--duration-press) ease;
+        }
+
+        .brand:active .brand-mark {
+            transform: scale(0.92);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        .steps {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .steps a {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-full);
+            background: var(--surface);
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            letter-spacing: -0.005em;
+            box-shadow: var(--shadow-sm);
+            transition: background-color var(--duration-hover) ease, color var(--duration-hover) ease, border-color var(--duration-hover) ease, transform var(--duration-press) ease;
+        }
+
+        .steps a:hover {
+            color: var(--text);
+            background: var(--surface-secondary);
+        }
+
+        .steps a:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        .theme-switch {
+            display: inline-flex;
+            align-items: center;
+            background: var(--surface-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-full);
+            padding: 2px;
+            gap: 2px;
+        }
+
+        .theme-btn {
+            appearance: none;
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-size: 0.775rem;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: background-color var(--duration-hover) ease, color var(--duration-hover) ease, box-shadow var(--duration-hover) ease;
+            user-select: none;
+            line-height: 1.25;
+        }
+
+        .theme-btn:hover {
+            color: var(--text);
+        }
+
+        .theme-btn.active,
+        .theme-btn[aria-pressed="true"] {
+            background: var(--surface);
+            color: var(--text);
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        .theme-btn:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        /* App Shell */
+        .editor-app {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 6px 16px 12px;
+            gap: 6px;
+            max-width: 100%;
+        }
+
+        /* Page Title Row */
+        .editor-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 2px 2px 0;
+            flex-shrink: 0;
+        }
+
+        .editor-page-title {
+            margin: 0;
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text);
+            line-height: 1.2;
+        }
+
+        .editor-view-switcher {
+            display: inline-flex;
+            align-items: center;
+            background: var(--surface-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-full);
+            padding: 2px;
+            gap: 2px;
+        }
+
+        .editor-view-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--muted);
+            text-decoration: none;
+            border-radius: var(--radius-full);
+            transition: background-color var(--duration-hover) ease, color var(--duration-hover) ease;
+            user-select: none;
+        }
+
+        .editor-view-link:hover {
+            color: var(--text);
+        }
+
+        .editor-view-link.active,
+        .editor-view-link[aria-current="page"] {
+            background: var(--surface);
+            color: var(--text);
+            font-weight: 600;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .editor-view-link:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        /* Toolbar Container & Groups */
+        .toolbar-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            padding: 2px 0;
+            flex-shrink: 0;
+            min-width: 0;
+        }
+
+        .toolbar-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        .toolbar-group-right {
+            margin-left: auto;
+        }
+
+        .toolbar-sep {
+            border-left: 1px solid var(--border);
+            height: 20px;
+            margin: 0 2px;
+            flex-shrink: 0;
+        }
+
+        /* Tools Segmented Control */
+        .tool-segmented {
+            display: inline-flex;
+            align-items: center;
+            background: var(--surface-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 2px;
+            gap: 2px;
+        }
+
+        .tool-segmented .btn {
+            border: none;
+            background: transparent;
+            box-shadow: none;
+            color: var(--muted);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 13px;
+            font-weight: 500;
+            min-height: 28px;
+        }
+
+        .tool-segmented .btn.active-toggle,
+        .tool-segmented .btn[aria-pressed="true"] {
+            background: var(--surface);
+            color: var(--accent);
+            font-weight: 600;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .tool-segmented .btn:hover:not(.active-toggle) {
+            color: var(--text);
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        [data-theme="dark"] .tool-segmented .btn:hover:not(.active-toggle),
+        :root:not([data-theme="light"]) .tool-segmented .btn:hover:not(.active-toggle) {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        /* Buttons & Controls */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1.25;
+            padding: 5px 12px;
+            min-height: 30px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-strong);
+            background: var(--accent);
+            color: #ffffff;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: var(--shadow-sm);
+            transition: background-color var(--duration-hover) ease, border-color var(--duration-hover) ease, color var(--duration-hover) ease, transform var(--duration-press) ease, box-shadow var(--duration-hover) ease;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: scale(0.97);
+        }
+
+        .btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn.alt {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border-strong);
+        }
+
+        .btn.alt:hover:not(:disabled) {
+            background: var(--surface-secondary);
+            border-color: var(--border-strong);
+        }
+
+        .btn.sm {
+            min-height: 28px;
+            padding: 4px 10px;
+            font-size: 13px;
+        }
+
+        .btn.btn-icon {
+            min-width: 28px;
+            padding: 4px 6px;
+        }
+
+        .btn.danger {
+            background: var(--surface);
+            color: var(--bad-text);
+            border: 1px solid var(--bad-border);
+        }
+
+        .btn.danger:hover:not(:disabled) {
+            background: var(--bad-bg);
+            border-color: var(--bad-text);
+        }
+
+        .btn.active-toggle {
+            background: var(--accent-subtle);
+            color: var(--accent);
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+
+        .btn:focus-visible,
+        .form-control:focus-visible,
+        .form-control-compact:focus-visible,
+        select:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        .form-control-compact {
+            font: inherit;
+            font-size: 13px;
+            padding: 4px 8px;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            color: var(--text);
+            cursor: pointer;
+            min-height: 28px;
+        }
+
+        .zoom-readout {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            min-width: 44px;
+            text-align: center;
+            user-select: none;
+        }
+
+        /* Status Chip */
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--surface-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-full);
+            padding: 3px 10px;
+            font-size: 13px;
+            color: var(--muted);
+            user-select: none;
+            margin-left: 4px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--ok-text, #34c759);
+            flex-shrink: 0;
+            transition: background-color 0.2s ease;
+        }
+
+        .status-dot.error {
+            background: var(--bad-text, #ef4444) !important;
+        }
+
+        .status-dot.saving {
+            background: var(--warn-text, #f59e0b) !important;
+        }
+
+        .status-chip .chip {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
+
+        .status-sep {
+            color: var(--border-strong);
+            font-size: 10px;
+        }
+
+        .status-chip .status-sync {
+            font-size: 13px;
+            color: var(--muted);
+            margin-left: 0;
+        }
+
+        .vh {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .pseudo-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .selection-badge {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--muted);
+            margin-left: 4px;
+            white-space: nowrap;
+        }
+
+        /* Editor Layout */
+        .editor-layout {
+            flex: 1;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 340px;
+            gap: 12px;
+        }
+
+        @media (max-width: 900px) {
+            .editor-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Canvas Container */
+        .canvas-container {
+            position: relative;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            user-select: none;
+            touch-action: none;
+        }
+
+        #flowchartSvg {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: default;
+        }
+
+        #flowchartSvg.panning {
+            cursor: grabbing;
+        }
+
+        #flowchartSvg.marquee-mode {
+            cursor: crosshair;
+        }
+
+        #flowchartSvg.tool-hand,
+        #flowchartSvg.tool-hand * {
+            cursor: grab !important;
+        }
+
+        #flowchartSvg.tool-hand.panning,
+        #flowchartSvg.tool-hand.panning * {
+            cursor: grabbing !important;
+        }
+
+        /* SVG Shapes & Box Tints */
+        .box-group {
+            cursor: move;
+        }
+
+        .box-shape {
+            fill: var(--surface);
+            stroke: var(--border-strong);
+            stroke-width: 1.8;
+            vector-effect: non-scaling-stroke;
+            transition: stroke 0.15s ease, stroke-width 0.15s ease, filter 0.15s ease;
+        }
+
+        /* Box fills use a tint per kind with matching outline; shape is primary cue */
+        .box-group[data-kind="start"] .box-shape,
+        .box-group[data-kind="end"] .box-shape {
+            fill: var(--tint-terminal-bg);
+            stroke: var(--tint-terminal-border);
+        }
+
+        .box-group[data-kind="proc"] .box-shape {
+            fill: var(--tint-proc-bg);
+            stroke: var(--tint-proc-border);
+        }
+
+        .box-group[data-kind="io"] .box-shape {
+            fill: var(--tint-io-bg);
+            stroke: var(--tint-io-border);
+        }
+
+        .box-group[data-kind="dec"] .box-shape {
+            fill: var(--tint-dec-bg);
+            stroke: var(--tint-dec-border);
+        }
+
+        .box-group:hover .box-shape {
+            stroke: var(--accent);
+        }
+
+        .box-group.selected .box-shape {
+            stroke: var(--accent);
+            stroke-width: 2.5;
+            vector-effect: non-scaling-stroke;
+            filter: drop-shadow(0 0 0 2px var(--accent-subtle)) drop-shadow(0 4px 12px var(--accent-focus));
+        }
+
+        .box-group.target-highlight .box-shape {
+            stroke: var(--accent);
+            stroke-dasharray: 4;
+            stroke-width: 2.6;
+            fill: var(--accent-subtle);
+        }
+
+        .box-text {
+            font-size: 13px;
+            font-family: inherit;
+            fill: var(--text);
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .box-id-badge {
+            font-size: 10px;
+            font-weight: 600;
+            fill: var(--tertiary);
+            letter-spacing: 0.05em;
+            pointer-events: none;
+            user-select: none;
+            opacity: 0.75;
+        }
+
+        /* 4 Connection Handles */
+        .arrow-handle {
+            fill: var(--accent);
+            stroke: var(--surface);
+            stroke-width: 2;
+            vector-effect: non-scaling-stroke;
+            cursor: crosshair;
+            opacity: 0;
+            transition: opacity 0.15s ease, transform 0.1s ease;
+        }
+
+        .box-group:hover .arrow-handle,
+        .box-group.selected .arrow-handle {
+            opacity: 0.9;
+        }
+
+        .arrow-handle:hover {
+            opacity: 1 !important;
+            transform: scale(1.3);
+        }
+
+        /* Edges */
+        .edge-path {
+            fill: none;
+            stroke: var(--edge-stroke);
+            stroke-width: 2;
+            cursor: pointer;
+            transition: stroke 0.15s ease;
+        }
+
+        .edge-path:hover {
+            stroke: var(--edge-hover);
+            stroke-width: 2.5;
+        }
+
+        .edge-group.selected .edge-path {
+            stroke: var(--accent);
+            stroke-width: 2.8;
+            filter: drop-shadow(0 0 4px var(--accent-focus));
+        }
+
+        .edge-hitbox {
+            fill: none;
+            stroke: transparent;
+            stroke-width: 18;
+            cursor: pointer;
+        }
+
+        .edge-label-bg {
+            fill: var(--surface);
+            stroke: var(--border-strong);
+            stroke-width: 1;
+            rx: 6;
+            ry: 6;
+            cursor: pointer;
+            transition: stroke 0.15s ease, fill 0.15s ease;
+        }
+
+        .edge-group:hover .edge-label-bg {
+            stroke: var(--accent);
+        }
+
+        .edge-group.selected .edge-label-bg {
+            fill: var(--surface-elevated);
+            stroke: var(--accent);
+            stroke-width: 1.5;
+        }
+
+        .edge-label-text {
+            font-size: 11px;
+            font-weight: 600;
+            fill: var(--text);
+            text-anchor: middle;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .temp-edge {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 2;
+            stroke-dasharray: 4;
+            pointer-events: none;
+        }
+
+        /* Marquee selection rect */
+        .marquee-rect {
+            fill: var(--accent-subtle);
+            stroke: var(--accent);
+            stroke-width: 1.5;
+            stroke-dasharray: 4;
+            pointer-events: none;
+        }
+
+        /* In-Place Editing */
+        .inline-editor {
+            font: inherit;
+            box-sizing: border-box;
+            border: 2px solid var(--accent);
+            border-radius: var(--radius-sm);
+            background: var(--surface-elevated);
+            color: var(--text);
+            padding: 4px 8px;
+            box-shadow: var(--shadow-md);
+            text-align: center;
+        }
+
+        textarea.inline-editor {
+            resize: none;
+            line-height: 1.3;
+        }
+
+        input.inline-editor {
+            text-align: center;
+            height: 28px;
+        }
+
+        /* Side Panel Card */
+        .side-panel {
+            height: 100%;
+            overflow-y: auto;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .panel-section-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text);
+            margin: 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            letter-spacing: -0.01em;
+        }
+
+        .form-control {
+            font-family: inherit;
+            font-size: 14px;
+            padding: 7px 10px;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            color: var(--text);
+            transition: border-color var(--duration-hover) ease, box-shadow var(--duration-hover) ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-focus);
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 64px;
+            line-height: 1.4;
+        }
+
+        .empty-inspector {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .empty-hint {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .inspector-shortcuts {
+            background: var(--surface-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        .inspector-shortcuts summary {
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text);
+            user-select: none;
+            outline: none;
+        }
+
+        .inspector-shortcuts summary:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        .inspector-shortcuts ul {
+            margin: 8px 0 0;
+            padding-left: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .inspector-shortcuts code,
+        .inspector-shortcuts strong {
+            color: var(--text);
+        }
+
+        /* Pseudocode Section */
+        .pseudo-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+
+        .chips .chip {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--muted);
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .chips .chip + .chip::before {
+            content: "•";
+            margin-right: 8px;
+            color: var(--border-strong);
+            font-size: 0.75rem;
+        }
+
+        .chips .chip.valid {
+            color: var(--ok-text);
+            font-weight: 600;
+        }
+
+        .chips .chip.invalid {
+            color: var(--bad-text);
+            font-weight: 600;
+        }
+
+        .warn {
+            margin: 0;
+            padding: 8px 14px 8px 24px;
+            background: var(--warn-bg);
+            border: 1px solid var(--warn-border);
+            border-left: 4px solid #f59e0b;
+            border-radius: var(--radius-sm);
+            color: var(--warn-text);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .warn:empty {
+            display: none;
+        }
+
+        .err {
+            background: var(--bad-bg);
+            color: var(--bad-text);
+            border: 1px solid var(--bad-border);
+            border-radius: var(--radius-sm);
+            display: none;
+        }
+
+        #pseudo {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.5;
+            background: var(--surface-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            padding: 10px 12px;
+            margin: 0;
+            flex: 1;
+            min-height: 120px;
+            overflow: auto;
+            white-space: pre;
+        }
+
+        .toast-msg {
+            display: none;
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--text);
+            color: var(--bg);
+            padding: 8px 18px;
+            border-radius: var(--radius-full);
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: var(--shadow-lg);
+            z-index: 30;
+            pointer-events: none;
+        }
+
+        /* Shortcuts Modal */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            max-width: 500px;
+            width: 90%;
+            padding: 20px;
+        }
+
+        .handoff-notice {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            margin: 8px 24px;
+            background: var(--surface);
+            border: 1px solid var(--accent);
+            border-radius: var(--radius-md);
+            font-size: 0.88rem;
+            color: var(--text);
+            gap: 12px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .handoff-notice-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .handoff-notice-dismiss {
+            background: none;
+            border: none;
+            font-size: 1.25rem;
+            line-height: 1;
+            cursor: pointer;
+            color: var(--muted);
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+        }
+
+        .handoff-notice-dismiss:hover {
+            color: var(--text);
+            background: var(--surface-secondary);
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-inner">
+            <a class="brand" href="/#/">
+                <svg class="brand-mark" width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                    <rect x="2" y="7" width="9" height="14" rx="3" stroke="var(--accent)" stroke-width="2" fill="var(--accent-subtle)" />
+                    <path d="M11 14h6" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" />
+                    <path d="M15 11.5l3 2.5-3 2.5" fill="var(--accent)" />
+                    <path d="M22 8l5 6-5 6-5-6z" stroke="var(--accent)" stroke-width="2" fill="var(--accent-subtle)" stroke-linejoin="round" />
+                </svg>
+                <span>Sketchpiler</span>
+            </a>
+            <div class="header-controls">
+                <nav class="steps" aria-label="Progress">
+                    <a id="s1" href="/#/">Home</a>
+                    <a id="s2" href="/#/upload">Upload</a>
+                </nav>
+                <div class="theme-switch" role="group" aria-label="Appearance">
+                    <button type="button" class="theme-btn" data-theme-val="system" aria-pressed="true" title="System appearance">Auto</button>
+                    <button type="button" class="theme-btn" data-theme-val="light" aria-pressed="false" title="Light appearance">Light</button>
+                    <button type="button" class="theme-btn" data-theme-val="dark" aria-pressed="false" title="Dark appearance">Dark</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="editor-app">
+        <!-- Page Title & View Switcher -->
+        <div class="editor-header-row">
+            <h1 class="editor-page-title">Edit your diagram</h1>
+            <nav class="editor-view-switcher" aria-label="Editor view">
+                <a href="/editor-canvas.html" class="editor-view-link active" aria-current="page">Canvas</a>
+                <a href="/editor.html" class="editor-view-link">Table</a>
+            </nav>
+            <button class="btn" id="doneBtn" type="button">Done</button>
+        </div>
+
+        <!-- Handoff Notice: shown when arriving from Review with a different diagram -->
+        <div id="handoffNotice" class="handoff-notice" role="alert" style="display:none;">
+            <div class="handoff-notice-content">
+                <span class="handoff-notice-text" id="handoffNoticeText">Loaded the diagram from Review. Your earlier edits are saved.</span>
+                <button type="button" class="btn alt sm" id="restoreEarlierEditsBtn">Restore earlier edits</button>
+            </div>
+            <button type="button" class="handoff-notice-dismiss" id="dismissHandoffBtn" aria-label="Dismiss notice">&times;</button>
+        </div>
+
+        <!-- Toolbar: Tools | Add | Layout | Arrange | History | View | Shortcuts & Reset -->
+        <div class="toolbar-container" role="toolbar" aria-label="Diagram editor toolbar">
+            <!-- Tools -->
+            <div class="toolbar-group tool-segmented" role="group" aria-label="Editor Tools">
+                <button class="btn alt sm active-toggle" id="selectToolBtn" type="button" aria-pressed="true" title="Select (V)" aria-label="Select tool">Select</button>
+                <button class="btn alt sm" id="handToolBtn" type="button" aria-pressed="false" title="Hand (H)" aria-label="Hand pan tool">Hand</button>
+            </div>
+            <span class="toolbar-sep" aria-hidden="true"></span>
+
+            <!-- Add Shapes -->
+            <div class="toolbar-group" role="group" aria-label="Add shapes">
+                <button class="btn alt sm" id="addStartBtn" type="button" title="Add Start box" aria-label="Add Start box">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1" y="4" width="14" height="8" rx="4" stroke="currentColor" stroke-width="1.6"/></svg>
+                    <span>Start</span>
+                </button>
+                <button class="btn alt sm" id="addEndBtn" type="button" title="Add End box" aria-label="Add End box">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1" y="4" width="14" height="8" rx="4" stroke="currentColor" stroke-width="1.6"/></svg>
+                    <span>End</span>
+                </button>
+                <button class="btn alt sm" id="addProcBtn" type="button" title="Add Step box" aria-label="Add Step box">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" rx="1.5" stroke="currentColor" stroke-width="1.6"/></svg>
+                    <span>Step</span>
+                </button>
+                <button class="btn alt sm" id="addIoBtn" type="button" title="Add I/O box" aria-label="Add I/O box">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><polygon points="4,3 15,3 12,13 1,13" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                    <span>I/O</span>
+                </button>
+                <button class="btn alt sm" id="addDecBtn" type="button" title="Add Decision box" aria-label="Add Decision box">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><polygon points="8,1.5 14.5,8 8,14.5 1.5,8" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                    <span>Decision</span>
+                </button>
+            </div>
+            <span class="toolbar-sep" aria-hidden="true"></span>
+
+            <!-- Layout -->
+            <div class="toolbar-group" role="group" aria-label="Layout">
+                <button class="btn alt sm" id="autoLayoutBtn" type="button" title="Auto layout diagram" aria-label="Auto layout">Auto layout</button>
+                <select class="form-control-compact" id="layoutDirection" title="Layout Direction" aria-label="Layout Direction">
+                    <option value="top-down" selected>Top-down</option>
+                    <option value="left-right">Left-right</option>
+                </select>
+                <select class="form-control-compact" id="layoutSpacing" title="Spacing Choice" aria-label="Layout Spacing">
+                    <option value="compact">Compact</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="roomy">Roomy</option>
+                </select>
+            </div>
+            <span class="toolbar-sep" aria-hidden="true"></span>
+
+            <!-- Arrange (Align & Distribute) -->
+            <div class="toolbar-group" role="group" aria-label="Arrange selection">
+                <button class="btn alt sm btn-icon" id="alignLeftBtn" type="button" disabled title="Select 2+ boxes" aria-label="Align Left">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="2" height="14" rx="0.5"/><rect x="4" y="3" width="9" height="3" rx="1"/><rect x="4" y="9" width="6" height="3" rx="1"/></svg>
+                </button>
+                <button class="btn alt sm btn-icon" id="alignCenterBtn" type="button" disabled title="Select 2+ boxes" aria-label="Align Center">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="7" y="1" width="2" height="14" rx="0.5"/><rect x="2" y="3" width="12" height="3" rx="1"/><rect x="4" y="9" width="8" height="3" rx="1"/></svg>
+                </button>
+                <button class="btn alt sm btn-icon" id="alignRightBtn" type="button" disabled title="Select 2+ boxes" aria-label="Align Right">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="13" y="1" width="2" height="14" rx="0.5"/><rect x="3" y="3" width="9" height="3" rx="1"/><rect x="6" y="9" width="6" height="3" rx="1"/></svg>
+                </button>
+                <button class="btn alt sm btn-icon" id="alignTopBtn" type="button" disabled title="Select 2+ boxes" aria-label="Align Top">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="14" height="2" rx="0.5"/><rect x="3" y="4" width="3" height="9" rx="1"/><rect x="9" y="4" width="3" height="6" rx="1"/></svg>
+                </button>
+                <button class="btn alt sm btn-icon" id="alignMiddleBtn" type="button" disabled title="Select 2+ boxes" aria-label="Align Middle">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="7" width="14" height="2" rx="0.5"/><rect x="3" y="2" width="3" height="12" rx="1"/><rect x="9" y="4" width="3" height="8" rx="1"/></svg>
+                </button>
+                <button class="btn alt sm btn-icon" id="alignBottomBtn" type="button" disabled title="Select 2+ boxes" aria-label="Align Bottom">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="13" width="14" height="2" rx="0.5"/><rect x="3" y="3" width="3" height="9" rx="1"/><rect x="9" y="6" width="3" height="6" rx="1"/></svg>
+                </button>
+                <button class="btn alt sm btn-icon" id="distribHBtn" type="button" disabled title="Select 3+ boxes" aria-label="Distribute Horizontally">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="2" width="2" height="12" rx="0.5"/><rect x="13" y="2" width="2" height="12" rx="0.5"/><rect x="6" y="4" width="4" height="8" rx="1"/></svg>
+                </button>
+                <button class="btn alt sm btn-icon" id="distribVBtn" type="button" disabled title="Select 3+ boxes" aria-label="Distribute Vertically">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="2" y="1" width="12" height="2" rx="0.5"/><rect x="2" y="13" width="12" height="2" rx="0.5"/><rect x="4" y="6" width="8" height="4" rx="1"/></svg>
+                </button>
+                <span id="selectionBadge" class="selection-badge"></span>
+            </div>
+            <span class="toolbar-sep" aria-hidden="true"></span>
+
+            <!-- History -->
+            <div class="toolbar-group" role="group" aria-label="History">
+                <button class="btn alt sm" id="undoBtn" type="button" disabled title="Undo (Ctrl+Z)" aria-label="Undo">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 3.5v-2L1.5 5 6 8.5v-2c3.5 0 6 1.8 6 5.5 0-4.5-3-8.5-6-8.5z"/></svg>
+                    <span>Undo</span>
+                </button>
+                <button class="btn alt sm" id="redoBtn" type="button" disabled title="Redo (Ctrl+Y)" aria-label="Redo">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10 3.5v-2l4.5 3.5-4.5 3.5v-2c-3.5 0-6 1.8-6 5.5 0-4.5 3-8.5 6-8.5z"/></svg>
+                    <span>Redo</span>
+                </button>
+            </div>
+            <span class="toolbar-sep" aria-hidden="true"></span>
+
+            <!-- View -->
+            <div class="toolbar-group" role="group" aria-label="View options">
+                <button class="btn alt sm" id="snapGridBtn" type="button" role="switch" aria-pressed="false" title="Toggle 20px Grid Snapping" aria-label="Toggle Grid Snapping">Grid: Off</button>
+                <button class="btn alt sm btn-icon" id="zoomOutBtn" type="button" title="Zoom Out (-)" aria-label="Zoom Out">-</button>
+                <span class="zoom-readout" id="zoomPercent" aria-live="polite">100%</span>
+                <button class="btn alt sm btn-icon" id="zoomInBtn" type="button" title="Zoom In (+)" aria-label="Zoom In">+</button>
+                <button class="btn alt sm" id="fitScreenBtn" type="button" title="Fit to Screen" aria-label="Fit to Screen">Fit</button>
+            </div>
+            <span class="toolbar-sep" aria-hidden="true"></span>
+
+            <!-- Far right: Shortcuts & Reset & Status -->
+            <div class="toolbar-group toolbar-group-right" role="group" aria-label="Actions and status">
+                <button class="btn alt sm btn-icon" id="shortcutsBtn" type="button" title="Shortcuts (?)" aria-label="Shortcuts" style="font-weight:700;">?</button>
+                <button class="btn danger sm" id="resetBtn" type="button" title="Reset to original diagram" aria-label="Reset diagram">Reset</button>
+                <div class="status-chip" role="status" aria-live="polite">
+                    <span class="status-dot" id="saveStatusDot" aria-hidden="true"></span>
+                    <span class="chip" id="sourceLabel">Sample diagram</span>
+                    <span class="status-sep" aria-hidden="true">•</span>
+                    <span class="status-sync" id="syncStatus" aria-hidden="true">Saved just now</span>
+                    <span class="vh" id="saveAnnounce"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Layout (Canvas + Side Panel) -->
+        <div class="editor-layout">
+            <!-- Canvas Area -->
+            <div class="canvas-container" id="canvasContainer">
+                <svg id="flowchartSvg" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="var(--edge-stroke, #6e6e73)" />
+                        </marker>
+                        <marker id="arrowhead-selected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="var(--accent, #0071e3)" />
+                        </marker>
+                        <!-- 20px Dot Grid Pattern -->
+                        <pattern id="dotGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                            <circle cx="10" cy="10" r="1.2" fill="var(--grid-dot, rgba(0, 0, 0, 0.12))" />
+                        </pattern>
+                    </defs>
+                    <g id="viewportGroup">
+                        <!-- Faint dot grid overlay -->
+                        <rect id="gridOverlay" x="-100000" y="-100000" width="200000" height="200000" fill="url(#dotGrid)" style="display:none; pointer-events: none;" />
+                        <g id="edgesLayer"></g>
+                        <g id="boxesLayer"></g>
+                        <path id="tempEdge" class="temp-edge" d="" style="display:none;" />
+                        <rect id="marqueeRect" class="marquee-rect" x="0" y="0" width="0" height="0" style="display:none;" />
+                    </g>
+                </svg>
+                <div class="toast-msg" id="toast"></div>
+            </div>
+
+            <!-- Side Panel -->
+            <aside class="side-panel" id="sidePanel">
+                <!-- Single Box Inspector -->
+                <div id="boxInspector" style="display: none; flex-direction: column; gap: 8px;">
+                    <div class="panel-section-title">
+                        <span>Edit Box <strong id="inspectBoxId"></strong></span>
+                        <button class="btn danger sm" id="deleteBoxBtn" type="button">Delete</button>
+                    </div>
+                    <div class="form-group">
+                        <label for="inspectBoxKind">Kind</label>
+                        <select class="form-control" id="inspectBoxKind">
+                            <option value="start">Start</option>
+                            <option value="end">End</option>
+                            <option value="proc">Step (Process)</option>
+                            <option value="io">Input / Output</option>
+                            <option value="dec">Decision</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="inspectBoxText">Text</label>
+                        <textarea class="form-control" id="inspectBoxText"></textarea>
+                    </div>
+                </div>
+
+                <!-- Multi-Box Inspector -->
+                <div id="multiInspector" style="display: none; flex-direction: column; gap: 8px;">
+                    <div class="panel-section-title">
+                        <span><strong id="multiCountLabel">0</strong> boxes selected</span>
+                        <button class="btn danger sm" id="deleteMultiBtn" type="button">Delete All</button>
+                    </div>
+                    <p style="font-size: 0.88rem; color: var(--muted); margin: 0; line-height: 1.5;">
+                        Align, distribute, drag together, nudge with arrow keys, duplicate (<code>Ctrl+D</code>), or Delete.
+                    </p>
+                </div>
+
+                <!-- Edge Inspector -->
+                <div id="edgeInspector" style="display: none; flex-direction: column; gap: 8px;">
+                    <div class="panel-section-title">
+                        <span>Edit Arrow</span>
+                        <button class="btn danger sm" id="deleteEdgeBtn" type="button">Delete</button>
+                    </div>
+                    <div class="form-group">
+                        <label for="inspectEdgeFrom">From</label>
+                        <select class="form-control" id="inspectEdgeFrom"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="inspectEdgeTo">To</label>
+                        <select class="form-control" id="inspectEdgeTo"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="inspectEdgeLabel">Label</label>
+                        <input type="text" class="form-control" id="inspectEdgeLabel" placeholder="(none)">
+                    </div>
+                </div>
+
+                <!-- Empty Inspector State -->
+                <div id="emptyInspector" class="empty-inspector">
+                    <p class="empty-hint">Click or Shift+click boxes or arrows to inspect, align, and edit properties.</p>
+                    <details class="inspector-shortcuts">
+                        <summary>Shortcuts</summary>
+                        <ul>
+                            <li><strong>V / H</strong>: Select or Hand tool</li>
+                            <li><strong>Drag empty canvas</strong>: select (marquee)</li>
+                            <li><strong>Shift+Click</strong>: add to selection</li>
+                            <li><strong>Space / H / Middle mouse</strong>: pan</li>
+                            <li><strong>Wheel</strong>: zoom</li>
+                            <li><strong>Ctrl+A</strong>: select all boxes</li>
+                            <li><strong>Double-click box</strong>: edit text</li>
+                            <li><strong>Ctrl+D</strong>: duplicate selection</li>
+                        </ul>
+                    </details>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid var(--border); margin: 4px 0;">
+
+                <!-- Pseudocode Section -->
+                <div class="pseudo-section">
+                    <div class="panel-section-title">
+                        <span>Generated Pseudocode</span>
+                        <div class="pseudo-actions">
+                            <button class="btn alt sm" id="copyPseudoBtn" type="button">Copy</button>
+                            <button class="btn alt sm" id="downloadPseudoBtn" type="button" disabled title="Nothing to download yet">Download .txt</button>
+                        </div>
+                    </div>
+                    <div class="chips" id="chips"></div>
+                    <ul class="warn" id="warns"></ul>
+                    <div class="err" id="err" role="alert" style="margin: 2px 0; padding: 8px 12px; font-size: 0.82rem;"></div>
+                    <pre id="pseudo"></pre>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <!-- Shortcuts Dialog -->
+    <div class="modal-backdrop" id="shortcutsModal">
+        <div class="modal-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 1.05rem;">Keyboard &amp; Mouse Shortcuts</h3>
+                <button class="btn alt sm" id="closeShortcutsBtn" type="button">&times;</button>
+            </div>
+            <table style="width: 100%; font-size: 0.84rem;">
+                <tbody>
+                    <tr><td><code>V</code></td><td>Select tool</td></tr>
+                    <tr><td><code>H</code></td><td>Hand tool</td></tr>
+                    <tr><td><code>Drag empty canvas</code></td><td>Select (marquee rectangle)</td></tr>
+                    <tr><td><code>Shift + Click</code></td><td>Add / toggle in selection</td></tr>
+                    <tr><td><code>Space + Drag</code> / <code>H</code> / <code>Middle Drag</code></td><td>Pan canvas view</td></tr>
+                    <tr><td><code>Wheel</code></td><td>Zoom around pointer (25% - 300%)</td></tr>
+                    <tr><td><code>Ctrl / Cmd + A</code></td><td>Select all boxes</td></tr>
+                    <tr><td><code>Double-click Box</code></td><td>Edit text (Enter commits, Esc cancels)</td></tr>
+                    <tr><td><code>Double-click Arrow / Label</code></td><td>Edit label</td></tr>
+                    <tr><td><code>Double-click Canvas</code></td><td>Add Step box at cursor (Select tool)</td></tr>
+                    <tr><td><code>Arrow keys</code></td><td>Nudge selection 10px (Shift = 50px)</td></tr>
+                    <tr><td><code>Ctrl + D</code></td><td>Duplicate selection (retaining arrows)</td></tr>
+                    <tr><td><code>Delete</code> / <code>Backspace</code></td><td>Delete selection (when not in text input)</td></tr>
+                    <tr><td><code>Ctrl + Z</code></td><td>Undo</td></tr>
+                    <tr><td><code>Ctrl + Y</code> / <code>Ctrl + Shift + Z</code></td><td>Redo</td></tr>
+                    <tr><td><code>Esc</code></td><td>Deselect / Cancel edit</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module">
+        import {
+            autoLayout,
+            edgePath,
+            isBackEdge,
+            createHistory,
+            addBox,
+            deleteBox,
+            setBoxText,
+            setBoxKind,
+            addEdge,
+            deleteEdge,
+            setEdgeLabel,
+            setEdgeEnds,
+            clampZoom,
+            zoomAroundPoint,
+            screenToDiagram,
+            diagramToScreen,
+            computeBounds,
+            fitToBounds,
+            duplicateBox,
+            nudgeBox,
+            boxesInRect,
+            alignBoxes,
+            distributeBoxes,
+            snapToGrid,
+            snapPositionsToGrid,
+            moveGroup,
+            duplicateGroup,
+            deleteGroup,
+            shouldPan,
+            getToolCursor,
+            isEditableElement,
+            getNearestSide,
+            pickEdgeSides,
+            computeAllEdgeSides,
+            getDownloadPseudocodeFilename,
+            isDownloadEnabled,
+            getDownloadButtonTitle,
+            formatSaveStatus,
+            generateSourceId,
+            decideEditorLoad,
+            getSourceChipLabel,
+            PREVIOUS_AUTOSAVE_KEY,
+            savePreviousSlot,
+            getPreviousSlot,
+            swapAutosaveWithPrevious
+        } from '/js/editor-core.js';
+
+        const API_GENERATE = '/api/generate';
+        const AUTOSAVE_KEY = 'flowchart_editor_state';
+        const PREVIOUS_KEY = PREVIOUS_AUTOSAVE_KEY || 'flowchart_editor_previous_state';
+
+        const DEFAULT_REP = {
+            schemaVersion: 1,
+            type: "flowchart",
+            nodes: [
+                { id: "N1", type: "start", text: "Start", uncertain: false },
+                { id: "N2", type: "io", text: "Input n", uncertain: false },
+                { id: "N3", type: "proc", text: "sum = 0, i = 1", uncertain: false },
+                { id: "N4", type: "dec", text: "i <= n ?", uncertain: false },
+                { id: "N5", type: "proc", text: "sum = sum + i; i = i + 1", uncertain: false },
+                { id: "N6", type: "io", text: "Display sum", uncertain: false },
+                { id: "N7", type: "end", text: "End", uncertain: false }
+            ],
+            edges: [
+                { from: "N1", to: "N2", label: null, uncertain: false },
+                { from: "N2", to: "N3", label: null, uncertain: false },
+                { from: "N3", to: "N4", label: null, uncertain: false },
+                { from: "N4", to: "N5", label: "YES", uncertain: false },
+                { from: "N4", to: "N6", label: "NO", uncertain: false },
+                { from: "N5", to: "N4", label: null, uncertain: false },
+                { from: "N6", to: "N7", label: null, uncertain: false }
+            ]
+        };
+
+        const $ = s => document.querySelector(s);
+
+        // Core State
+        let history = null;
+        let originalLoadedState = null;
+        let baseSourceLabel = "Sample diagram";
+        let debounceTimer = null;
+        let lastPseudocode = "";
+        let currentSourceId = null;
+
+        // Selection State: Box Set or Selected Edge
+        let selectedBoxIds = new Set();
+        let selectedEdgeIndex = null;
+
+        // Viewport Transform
+        let zoom = 1.0;
+        let panX = 0;
+        let panY = 0;
+
+        // Snapping State
+        let isSnapGrid = false;
+
+        // Interaction State
+        let currentTool = 'select'; // 'select' | 'hand'
+        let spacePrevTool = null;
+        let isPanning = false;
+        let panStartClient = { x: 0, y: 0 };
+        let panStartPan = { x: 0, y: 0 };
+        let isSpacePressed = false;
+        let dragGroupState = null;
+        let connectState = null;
+        let marqueeState = null;
+
+        function setTool(tool) {
+            if (tool !== 'select' && tool !== 'hand') return;
+            currentTool = tool;
+
+            const selectBtn = $("#selectToolBtn");
+            const handBtn = $("#handToolBtn");
+            const svgEl = $("#flowchartSvg");
+
+            if (selectBtn && handBtn) {
+                if (tool === 'select') {
+                    selectBtn.classList.add("active-toggle");
+                    selectBtn.setAttribute("aria-pressed", "true");
+                    handBtn.classList.remove("active-toggle");
+                    handBtn.setAttribute("aria-pressed", "false");
+                } else {
+                    handBtn.classList.add("active-toggle");
+                    handBtn.setAttribute("aria-pressed", "true");
+                    selectBtn.classList.remove("active-toggle");
+                    selectBtn.setAttribute("aria-pressed", "false");
+                }
+            }
+
+            if (svgEl) {
+                if (tool === 'hand') {
+                    svgEl.classList.add("tool-hand");
+                } else {
+                    svgEl.classList.remove("tool-hand");
+                }
+                svgEl.style.cursor = getToolCursor(currentTool, isSpacePressed, isPanning);
+            }
+        }
+
+        function showToast(msg) {
+            const toast = $("#toast");
+            toast.textContent = msg;
+            toast.style.display = "block";
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => {
+                toast.style.display = "none";
+            }, 3000);
+        }
+
+        function updateViewportTransform() {
+            $("#viewportGroup").setAttribute("transform", `translate(${panX}, ${panY}) scale(${zoom})`);
+            $("#zoomPercent").textContent = `${Math.round(zoom * 100)}%`;
+        }
+
+        function wrapText(text, maxChars = 22) {
+            if (!text) return [""];
+            const words = String(text).split(/\s+/);
+            const lines = [];
+            let cur = "";
+            for (const w of words) {
+                if (!cur) {
+                    cur = w;
+                } else if ((cur + " " + w).length <= maxChars) {
+                    cur += " " + w;
+                } else {
+                    lines.push(cur);
+                    cur = w;
+                }
+            }
+            if (cur) lines.push(cur);
+            return lines.length > 0 ? lines : [text];
+        }
+
+        function computeBoxDims(node) {
+            const lines = wrapText(node.text, 22);
+            let maxLen = 0;
+            lines.forEach(l => { if (l.length > maxLen) maxLen = l.length; });
+
+            let width = Math.max(140, Math.min(240, maxLen * 8.5 + 40));
+            let height = Math.max(56, lines.length * 18 + 26);
+
+            if (node.type === 'dec') {
+                width = Math.max(width + 24, 150);
+                height = Math.max(height + 16, 68);
+            }
+            return { width: Math.round(width), height: Math.round(height), lines };
+        }
+
+        function getDimsMap() {
+            const map = new Map();
+            if (history && history.state && history.state.representation) {
+                history.state.representation.nodes.forEach(n => {
+                    map.set(n.id, computeBoxDims(n));
+                });
+            }
+            return map;
+        }
+
+        // --- Save Status State & Management ---
+        let lastSavedTimestamp = Date.now();
+        let saveCurrentState = "saved"; // "saved" | "saving" | "error"
+        let lastAnnouncedState = null;
+        let saveStatusTimer = null;
+
+        function updateSaveStatusDisplay(isStateTransition = false) {
+            const syncStatusEl = $("#syncStatus");
+            const dotEl = $("#saveStatusDot");
+            const announceEl = $("#saveAnnounce");
+            if (!syncStatusEl) return;
+
+            if (saveCurrentState === "error") {
+                syncStatusEl.textContent = "Not saved - browser storage unavailable";
+                if (dotEl) {
+                    dotEl.classList.remove("saving");
+                    dotEl.classList.add("error");
+                }
+                if (isStateTransition || lastAnnouncedState !== "error") {
+                    lastAnnouncedState = "error";
+                    if (announceEl) announceEl.textContent = "Not saved - browser storage unavailable";
+                }
+                return;
+            }
+
+            if (saveCurrentState === "saving") {
+                syncStatusEl.textContent = "Saving...";
+                if (dotEl) {
+                    dotEl.classList.remove("error");
+                    dotEl.classList.add("saving");
+                }
+                return;
+            }
+
+            // saveCurrentState === "saved"
+            if (dotEl) {
+                dotEl.classList.remove("error", "saving");
+            }
+            syncStatusEl.textContent = formatSaveStatus(lastSavedTimestamp, Date.now());
+
+            if (isStateTransition || lastAnnouncedState !== "saved") {
+                lastAnnouncedState = "saved";
+                if (announceEl) announceEl.textContent = "Changes saved";
+            }
+        }
+
+        function setSaveState(state) {
+            const changed = (saveCurrentState !== state);
+            saveCurrentState = state;
+            if (state === "saved") {
+                lastSavedTimestamp = Date.now();
+            }
+            updateSaveStatusDisplay(changed);
+        }
+
+        function saveAutosave() {
+            setSaveState("saving");
+            try {
+                if (history && history.state) {
+                    sessionStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+                        representation: history.state.representation,
+                        positions: history.state.positions,
+                        edgeSides: history.state.edgeSides || {},
+                        sourceId: currentSourceId
+                    }));
+                    setSaveState("saved");
+                }
+            } catch (e) {
+                setSaveState("error");
+            }
+        }
+
+        function flushPendingSave() {
+            // Commit any active inline editor (textarea or input)
+            const inlineEl = document.querySelector(".inline-editor");
+            if (inlineEl) {
+                inlineEl.blur();
+            }
+            saveAutosave();
+        }
+
+        function handleDone() {
+            flushPendingSave();
+            try {
+                sessionStorage.setItem("flowchart_source", "editor");
+                if (currentSourceId) {
+                    sessionStorage.setItem("flowchart_source_id", currentSourceId);
+                }
+            } catch (e) { }
+            window.location.href = "/#/result";
+        }
+
+        function updateDownloadButtonUI() {
+            const dlBtn = $("#downloadPseudoBtn");
+            if (!dlBtn) return;
+            const enabled = isDownloadEnabled(lastPseudocode);
+            dlBtn.disabled = !enabled;
+            dlBtn.title = getDownloadButtonTitle(enabled);
+        }
+
+        function showHandoffNotice() {
+            const noticeEl = $("#handoffNotice");
+            if (noticeEl) {
+                const noticeText = $("#handoffNoticeText");
+                if (noticeText) noticeText.textContent = "Loaded the diagram from Review. Your earlier edits are saved.";
+                const btn = $("#restoreEarlierEditsBtn");
+                if (btn) btn.textContent = "Restore earlier edits";
+                noticeEl.style.display = "flex";
+            }
+        }
+
+        function swapDiagramWithPrevious() {
+            let prevRaw = null;
+            try {
+                prevRaw = sessionStorage.getItem(PREVIOUS_KEY);
+            } catch (_) {}
+            if (!prevRaw) return;
+
+            let prev = null;
+            try {
+                prev = JSON.parse(prevRaw);
+            } catch (_) {}
+            if (!prev || !prev.representation || !prev.positions) return;
+
+            const currentActiveState = {
+                representation: history.state.representation,
+                positions: history.state.positions,
+                edgeSides: history.state.edgeSides || {},
+                sourceId: currentSourceId
+            };
+
+            const swapped = swapAutosaveWithPrevious(currentActiveState, prev);
+
+            try {
+                sessionStorage.setItem(PREVIOUS_KEY, JSON.stringify(swapped.newPrevious));
+            } catch (_) {}
+
+            const restoredState = swapped.newActive;
+            currentSourceId = restoredState.sourceId || generateSourceId();
+
+            try {
+                sessionStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+                    representation: restoredState.representation,
+                    positions: restoredState.positions,
+                    edgeSides: restoredState.edgeSides || {},
+                    sourceId: currentSourceId
+                }));
+                if (currentSourceId) {
+                    sessionStorage.setItem("flowchart_source_id", currentSourceId);
+                }
+            } catch (_) {}
+
+            history = createHistory(restoredState);
+            originalLoadedState = JSON.parse(JSON.stringify(restoredState));
+
+            $("#sourceLabel").textContent = "Restored your edits";
+            setSaveState("saved");
+            renderCanvas();
+            updateHistoryButtons();
+            updateSelectionUI();
+            fitToScreen();
+            scheduleGenerate();
+
+            const noticeText = $("#handoffNoticeText");
+            const btn = $("#restoreEarlierEditsBtn");
+            if (noticeText && btn) {
+                if (noticeText.textContent.includes("Loaded the diagram from Review")) {
+                    noticeText.textContent = "Restored your earlier edits. Diagram from Review is saved.";
+                    btn.textContent = "Swap back to Review diagram";
+                } else {
+                    noticeText.textContent = "Loaded the diagram from Review. Your earlier edits are saved.";
+                    btn.textContent = "Restore earlier edits";
+                }
+            }
+        }
+
+        function init() {
+            const searchParams = new URLSearchParams(window.location.search);
+            const arrivedFromReview = searchParams.get('from') === 'review';
+            if (arrivedFromReview) {
+                const cleanUrl = new URL(window.location.href);
+                cleanUrl.searchParams.delete('from');
+                window.history.replaceState(window.history.state, '', cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : '') + cleanUrl.hash);
+            }
+
+            let savedRep = null;
+            let sourceFlag = null;
+            let resultSourceId = null;
+            try {
+                const raw = sessionStorage.getItem("flowchart_representation");
+                if (raw) savedRep = JSON.parse(raw);
+                sourceFlag = sessionStorage.getItem("flowchart_source");
+                resultSourceId = sessionStorage.getItem("flowchart_source_id");
+            } catch (e) { }
+
+            let autosavedRaw = null;
+            let parsedAutosave = null;
+            let autosaveSourceId = null;
+            let hasAutosave = false;
+            try {
+                autosavedRaw = sessionStorage.getItem(AUTOSAVE_KEY);
+                if (autosavedRaw) {
+                    const parsed = JSON.parse(autosavedRaw);
+                    if (parsed && parsed.representation && parsed.positions) {
+                        parsedAutosave = parsed;
+                        autosaveSourceId = parsed.sourceId || null;
+                        hasAutosave = true;
+                    }
+                }
+            } catch (e) { }
+
+            const hasResult = Boolean(savedRep && Array.isArray(savedRep.nodes) && Array.isArray(savedRep.edges));
+
+            const decision = decideEditorLoad({
+                arrivedFromReview,
+                resultSourceId,
+                autosaveSourceId,
+                hasResult,
+                hasAutosave
+            });
+
+            let activeState;
+            if (decision.action === 'restore-autosave') {
+                currentSourceId = autosaveSourceId || resultSourceId || generateSourceId();
+                activeState = {
+                    representation: parsedAutosave.representation,
+                    positions: parsedAutosave.positions,
+                    edgeSides: parsedAutosave.edgeSides || computeAllEdgeSides(parsedAutosave.representation, parsedAutosave.positions),
+                    sourceId: currentSourceId
+                };
+                originalLoadedState = activeState;
+                baseSourceLabel = getSourceChipLabel({ decision: 'restore-autosave', sourceFlag });
+            } else if (decision.action === 'load-result') {
+                if (hasAutosave && autosavedRaw) {
+                    savePreviousSlot(sessionStorage, autosavedRaw);
+                    showHandoffNotice();
+                }
+                currentSourceId = resultSourceId || generateSourceId();
+                const initialRep = savedRep;
+                const initialPositions = autoLayout(initialRep);
+                const initialEdgeSides = computeAllEdgeSides(initialRep, initialPositions);
+                originalLoadedState = {
+                    representation: JSON.parse(JSON.stringify(initialRep)),
+                    positions: JSON.parse(JSON.stringify(initialPositions)),
+                    edgeSides: initialEdgeSides,
+                    sourceId: currentSourceId
+                };
+                activeState = originalLoadedState;
+                baseSourceLabel = getSourceChipLabel({ decision: 'load-result', sourceFlag });
+                try {
+                    sessionStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+                        representation: activeState.representation,
+                        positions: activeState.positions,
+                        edgeSides: activeState.edgeSides || {},
+                        sourceId: currentSourceId
+                    }));
+                } catch (e) { }
+            } else {
+                // load-sample
+                if (hasAutosave && autosavedRaw) {
+                    savePreviousSlot(sessionStorage, autosavedRaw);
+                    showHandoffNotice();
+                }
+                currentSourceId = generateSourceId();
+                const initialRep = DEFAULT_REP;
+                const initialPositions = autoLayout(initialRep);
+                const initialEdgeSides = computeAllEdgeSides(initialRep, initialPositions);
+                originalLoadedState = {
+                    representation: JSON.parse(JSON.stringify(initialRep)),
+                    positions: JSON.parse(JSON.stringify(initialPositions)),
+                    edgeSides: initialEdgeSides,
+                    sourceId: currentSourceId
+                };
+                activeState = originalLoadedState;
+                baseSourceLabel = getSourceChipLabel({ decision: 'load-sample', sourceFlag });
+                try {
+                    sessionStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+                        representation: activeState.representation,
+                        positions: activeState.positions,
+                        edgeSides: activeState.edgeSides || {},
+                        sourceId: currentSourceId
+                    }));
+                } catch (e) { }
+            }
+
+            history = createHistory(activeState);
+            $("#sourceLabel").textContent = baseSourceLabel;
+
+            setSaveState("saved");
+            if (!saveStatusTimer) {
+                saveStatusTimer = setInterval(() => {
+                    if (saveCurrentState === "saved") {
+                        updateSaveStatusDisplay(false);
+                    }
+                }, 30000);
+            }
+            updateDownloadButtonUI();
+
+            renderCanvas();
+            updateHistoryButtons();
+            updateSelectionUI();
+            setupEvents();
+
+            fitToScreen();
+            requestAnimationFrame(() => {
+                fitToScreen();
+                scheduleGenerate();
+            });
+            window.addEventListener("load", fitToScreen);
+        }
+
+        function fitToScreen() {
+            const svgEl = $("#flowchartSvg");
+            const rect = svgEl.getBoundingClientRect();
+            const vpW = rect.width || 800;
+            const vpH = rect.height || 600;
+
+            const bounds = computeBounds(history.state.positions, { width: 150, height: 70 });
+            const fit = fitToBounds(bounds, vpW, vpH, { padding: 50, minZoom: 0.25, maxZoom: 3.0 });
+
+            zoom = fit.zoom;
+            panX = fit.panX;
+            panY = fit.panY;
+            updateViewportTransform();
+        }
+
+        function removeInlineEditor() {
+            document.querySelectorAll(".inline-editor").forEach(el => el.remove());
+        }
+
+        function renderCanvas() {
+            const state = history.state;
+            const rep = state.representation;
+            const positions = (dragGroupState && dragGroupState.currentPositions)
+                ? dragGroupState.currentPositions
+                : state.positions;
+
+            const edgesLayer = $("#edgesLayer");
+            const boxesLayer = $("#boxesLayer");
+            edgesLayer.innerHTML = "";
+            boxesLayer.innerHTML = "";
+
+            const dimsMap = getDimsMap();
+
+            // 1. Render Edges
+            const edgeSidesMap = (history && history.state && history.state.edgeSides) || {};
+            const nodeMap = new Map();
+            rep.nodes.forEach(n => nodeMap.set(n.id, n));
+
+            rep.edges.forEach((edge, idx) => {
+                const p1 = positions[edge.from];
+                const p2 = positions[edge.to];
+                if (!p1 || !p2) return;
+
+                const d1 = dimsMap.get(edge.from) || { width: 140, height: 60 };
+                const d2 = dimsMap.get(edge.to) || { width: 140, height: 60 };
+
+                const fromBox = { x: p1.x, y: p1.y, width: d1.width, height: d1.height };
+                const toBox = { x: p2.x, y: p2.y, width: d2.width, height: d2.height };
+
+                const edgeKey = `${edge.from}->${edge.to}`;
+                const storedSides = edgeSidesMap[edgeKey] || {};
+
+                const fromNode = nodeMap.get(edge.from);
+                const toNode = nodeMap.get(edge.to);
+                const defaultSides = pickEdgeSides(edge, fromNode, toNode, p1, p2);
+
+                const effectiveFromSide = storedSides.fromSide || defaultSides.fromSide;
+                const effectiveToSide = storedSides.toSide || defaultSides.toSide;
+
+                const back = isBackEdge(edge, positions);
+                const { path, labelPoint } = edgePath(fromBox, toBox, back, effectiveFromSide, effectiveToSide, edge.label);
+
+                const isSelected = selectedEdgeIndex === idx;
+
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.setAttribute("class", "edge-group" + (isSelected ? " selected" : ""));
+
+                const hitbox = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                hitbox.setAttribute("d", path);
+                hitbox.setAttribute("class", "edge-hitbox");
+                hitbox.addEventListener("click", e => {
+                    if (currentTool === 'hand' || isSpacePressed) return;
+                    e.stopPropagation();
+                    selectEdge(idx);
+                });
+                hitbox.addEventListener("dblclick", e => {
+                    if (currentTool === 'hand' || isSpacePressed) return;
+                    e.stopPropagation();
+                    startInPlaceEdgeEdit(idx, labelPoint);
+                });
+                g.appendChild(hitbox);
+
+                const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                p.setAttribute("d", path);
+                p.setAttribute("class", "edge-path");
+                p.setAttribute("marker-end", isSelected ? "url(#arrowhead-selected)" : "url(#arrowhead)");
+                g.appendChild(p);
+
+                if (edge.label && edge.label.trim()) {
+                    const labelText = edge.label.trim();
+                    const textWidth = Math.max(30, labelText.length * 7 + 14);
+                    const textHeight = 18;
+
+                    const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    bg.setAttribute("x", labelPoint.x - textWidth / 2);
+                    bg.setAttribute("y", labelPoint.y - textHeight / 2);
+                    bg.setAttribute("width", textWidth);
+                    bg.setAttribute("height", textHeight);
+                    bg.setAttribute("class", "edge-label-bg");
+                    bg.addEventListener("click", e => {
+                        if (currentTool === 'hand' || isSpacePressed) return;
+                        e.stopPropagation();
+                        selectEdge(idx);
+                    });
+                    bg.addEventListener("dblclick", e => {
+                        if (currentTool === 'hand' || isSpacePressed) return;
+                        e.stopPropagation();
+                        startInPlaceEdgeEdit(idx, labelPoint);
+                    });
+                    g.appendChild(bg);
+
+                    const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    txt.setAttribute("x", labelPoint.x);
+                    txt.setAttribute("y", labelPoint.y + 4);
+                    txt.setAttribute("class", "edge-label-text");
+                    txt.textContent = labelText;
+                    g.appendChild(txt);
+                }
+
+                edgesLayer.appendChild(g);
+            });
+
+            // 2. Render Boxes
+            rep.nodes.forEach(node => {
+                const pos = positions[node.id] || { x: 400, y: 100 };
+                const dims = dimsMap.get(node.id) || { width: 140, height: 60, lines: [node.text] };
+                const w = dims.width;
+                const h = dims.height;
+
+                const isSelected = selectedBoxIds.has(node.id);
+
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.setAttribute("class", "box-group" + (isSelected ? " selected" : ""));
+                g.setAttribute("data-node-id", node.id);
+                g.setAttribute("data-kind", node.type);
+                g.setAttribute("transform", `translate(${pos.x}, ${pos.y})`);
+
+                let shapeEl;
+                if (node.type === 'start' || node.type === 'end') {
+                    shapeEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    shapeEl.setAttribute("x", -w / 2);
+                    shapeEl.setAttribute("y", -h / 2);
+                    shapeEl.setAttribute("width", w);
+                    shapeEl.setAttribute("height", h);
+                    shapeEl.setAttribute("rx", h / 2);
+                    shapeEl.setAttribute("ry", h / 2);
+                    shapeEl.setAttribute("class", "box-shape");
+                } else if (node.type === 'io') {
+                    shapeEl = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                    const slant = 14;
+                    const pts = `${-w/2 + slant},${-h/2} ${w/2 + slant},${-h/2} ${w/2 - slant},${h/2} ${-w/2 - slant},${h/2}`;
+                    shapeEl.setAttribute("points", pts);
+                    shapeEl.setAttribute("class", "box-shape");
+                } else if (node.type === 'dec') {
+                    shapeEl = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                    const pts = `0,${-h/2} ${w/2},0 0,${h/2} ${-w/2},0`;
+                    shapeEl.setAttribute("points", pts);
+                    shapeEl.setAttribute("class", "box-shape");
+                } else {
+                    shapeEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    shapeEl.setAttribute("x", -w / 2);
+                    shapeEl.setAttribute("y", -h / 2);
+                    shapeEl.setAttribute("width", w);
+                    shapeEl.setAttribute("height", h);
+                    shapeEl.setAttribute("rx", 8);
+                    shapeEl.setAttribute("ry", 8);
+                    shapeEl.setAttribute("class", "box-shape");
+                }
+                g.appendChild(shapeEl);
+
+                const idTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                idTxt.setAttribute("x", 0);
+                idTxt.setAttribute("y", -h / 2 + 14);
+                idTxt.setAttribute("class", "box-id-badge");
+                idTxt.setAttribute("text-anchor", "middle");
+                idTxt.textContent = node.id;
+                g.appendChild(idTxt);
+
+                const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                txt.setAttribute("class", "box-text");
+                txt.setAttribute("text-anchor", "middle");
+
+                const lines = dims.lines;
+                const lineHeight = 16;
+                const startTextY = 4 - ((lines.length - 1) * lineHeight) / 2;
+
+                lines.forEach((line, lineIdx) => {
+                    const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+                    tspan.setAttribute("x", 0);
+                    tspan.setAttribute("y", startTextY + lineIdx * lineHeight);
+                    tspan.textContent = line;
+                    txt.appendChild(tspan);
+                });
+                g.appendChild(txt);
+
+                // 4 Connection handles
+                const handleCoords = [
+                    { side: 'top', cx: 0, cy: -h / 2 },
+                    { side: 'right', cx: w / 2, cy: 0 },
+                    { side: 'bottom', cx: 0, cy: h / 2 },
+                    { side: 'left', cx: -w / 2, cy: 0 }
+                ];
+
+                handleCoords.forEach(hc => {
+                    const handle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    handle.setAttribute("cx", hc.cx);
+                    handle.setAttribute("cy", hc.cy);
+                    handle.setAttribute("r", 5);
+                    handle.setAttribute("class", "arrow-handle");
+                    handle.addEventListener("pointerdown", e => {
+                        if (currentTool === 'hand' || isSpacePressed) return;
+                        e.stopPropagation();
+                        startConnect(node.id, pos.x + hc.cx, pos.y + hc.cy, e, hc.side);
+                    });
+                    g.appendChild(handle);
+                });
+
+                // Pointerdown (Select & Drag Group)
+                g.addEventListener("pointerdown", e => {
+                    if (e.target.classList.contains("arrow-handle")) return;
+                    if (e.button === 1) return; // Allow middle-click to pan
+                    if (currentTool === 'hand' || isSpacePressed) return; // Hand tool or Space pans everywhere
+                    e.stopPropagation();
+
+                    let selectionChanged = false;
+                    if (e.shiftKey) {
+                        // Shift+click toggles this box in selection
+                        if (selectedBoxIds.has(node.id)) {
+                            selectedBoxIds.delete(node.id);
+                        } else {
+                            selectedBoxIds.add(node.id);
+                            selectedEdgeIndex = null;
+                        }
+                        selectionChanged = true;
+                    } else {
+                        // Plain click: if not already part of group, select only this box
+                        if (!selectedBoxIds.has(node.id)) {
+                            selectedBoxIds.clear();
+                            selectedBoxIds.add(node.id);
+                            selectedEdgeIndex = null;
+                            selectionChanged = true;
+                        }
+                    }
+
+                    if (selectionChanged) {
+                        updateSelectionUI();
+                        renderCanvas();
+                    }
+                    startDragGroup(node.id, e);
+                });
+
+                // Double-click box to edit in place
+                g.addEventListener("dblclick", e => {
+                    if (currentTool === 'hand' || isSpacePressed) return;
+                    e.stopPropagation();
+                    startInPlaceBoxEdit(node.id, dims);
+                });
+
+                boxesLayer.appendChild(g);
+            });
+        }
+
+        function selectEdge(idx) {
+            selectedEdgeIndex = idx;
+            selectedBoxIds.clear();
+            updateSelectionUI();
+            renderCanvas();
+        }
+
+        function deselectAll() {
+            selectedBoxIds.clear();
+            selectedEdgeIndex = null;
+            updateSelectionUI();
+            renderCanvas();
+        }
+
+        function updateSelectionUI() {
+            const count = selectedBoxIds.size;
+            const badge = $("#selectionBadge");
+            badge.textContent = count > 1 ? `${count} boxes selected` : "";
+
+            // Toolbar buttons state and tooltips: "Select 2+ boxes" / "Select 3+ boxes"
+            const alignDisabled = count < 2;
+            const alignTooltip = alignDisabled ? "Select 2+ boxes" : "Align";
+            $("#alignLeftBtn").disabled = alignDisabled;
+            $("#alignLeftBtn").title = alignDisabled ? alignTooltip : "Align Left";
+            $("#alignCenterBtn").disabled = alignDisabled;
+            $("#alignCenterBtn").title = alignDisabled ? alignTooltip : "Align Center";
+            $("#alignRightBtn").disabled = alignDisabled;
+            $("#alignRightBtn").title = alignDisabled ? alignTooltip : "Align Right";
+            $("#alignTopBtn").disabled = alignDisabled;
+            $("#alignTopBtn").title = alignDisabled ? alignTooltip : "Align Top";
+            $("#alignMiddleBtn").disabled = alignDisabled;
+            $("#alignMiddleBtn").title = alignDisabled ? alignTooltip : "Align Middle";
+            $("#alignBottomBtn").disabled = alignDisabled;
+            $("#alignBottomBtn").title = alignDisabled ? alignTooltip : "Align Bottom";
+
+            const distribDisabled = count < 3;
+            const distribTooltip = distribDisabled ? "Select 3+ boxes" : "Distribute";
+            $("#distribHBtn").disabled = distribDisabled;
+            $("#distribHBtn").title = distribDisabled ? distribTooltip : "Distribute Horizontally";
+            $("#distribVBtn").disabled = distribDisabled;
+            $("#distribVBtn").title = distribDisabled ? distribTooltip : "Distribute Vertically";
+
+            // Inspector Panel visibility
+            const boxInsp = $("#boxInspector");
+            const multiInsp = $("#multiInspector");
+            const edgeInsp = $("#edgeInspector");
+            const emptyInsp = $("#emptyInspector");
+
+            boxInsp.style.display = "none";
+            multiInsp.style.display = "none";
+            edgeInsp.style.display = "none";
+            emptyInsp.style.display = "none";
+
+            if (count === 1) {
+                const singleId = Array.from(selectedBoxIds)[0];
+                const node = history.state.representation.nodes.find(n => n.id === singleId);
+                if (node) {
+                    boxInsp.style.display = "flex";
+                    $("#inspectBoxId").textContent = node.id;
+                    $("#inspectBoxKind").value = node.type;
+                    $("#inspectBoxText").value = node.text;
+                    return;
+                }
+            } else if (count > 1) {
+                multiInsp.style.display = "flex";
+                $("#multiCountLabel").textContent = String(count);
+                return;
+            }
+
+            if (selectedEdgeIndex !== null) {
+                const edge = history.state.representation.edges[selectedEdgeIndex];
+                if (edge) {
+                    edgeInsp.style.display = "flex";
+                    const fromSel = $("#inspectEdgeFrom");
+                    const toSel = $("#inspectEdgeTo");
+                    fromSel.innerHTML = "";
+                    toSel.innerHTML = "";
+
+                    history.state.representation.nodes.forEach(n => {
+                        const o1 = document.createElement("option");
+                        o1.value = n.id;
+                        o1.textContent = n.id;
+                        if (n.id === edge.from) o1.selected = true;
+                        fromSel.appendChild(o1);
+
+                        const o2 = document.createElement("option");
+                        o2.value = n.id;
+                        o2.textContent = n.id;
+                        if (n.id === edge.to) o2.selected = true;
+                        toSel.appendChild(o2);
+                    });
+
+                    $("#inspectEdgeLabel").value = edge.label || "";
+                    return;
+                }
+            }
+
+            emptyInsp.style.display = "block";
+        }
+
+        function updateHistoryButtons() {
+            $("#undoBtn").disabled = !history.canUndo;
+            $("#redoBtn").disabled = !history.canRedo;
+        }
+
+        function applyEdit(newState, shouldGenerate = true) {
+            if (newState && newState.edgeSides === undefined && history && history.state && history.state.edgeSides) {
+                newState.edgeSides = history.state.edgeSides;
+            }
+            history.push(newState);
+            saveAutosave();
+            updateHistoryButtons();
+            updateSelectionUI();
+            renderCanvas();
+            if (shouldGenerate) {
+                scheduleGenerate();
+            }
+        }
+
+        // --- In-Place Editing ---
+        function startInPlaceBoxEdit(nodeId, dims) {
+            removeInlineEditor();
+            const node = history.state.representation.nodes.find(n => n.id === nodeId);
+            if (!node) return;
+            const pos = history.state.positions[nodeId] || { x: 400, y: 100 };
+
+            const screenPos = diagramToScreen(pos.x, pos.y, panX, panY, zoom);
+            const boxW = Math.max(120, dims.width * zoom);
+            const boxH = Math.max(50, dims.height * zoom);
+
+            const ta = document.createElement("textarea");
+            ta.className = "inline-editor";
+            ta.value = node.text;
+            ta.style.position = "absolute";
+            ta.style.left = `${screenPos.x - boxW / 2}px`;
+            ta.style.top = `${screenPos.y - boxH / 2}px`;
+            ta.style.width = `${boxW}px`;
+            ta.style.height = `${boxH}px`;
+            ta.style.fontSize = `${Math.max(11, 13 * zoom)}px`;
+            ta.style.zIndex = "25";
+
+            let committed = false;
+            const commit = () => {
+                if (committed) return;
+                committed = true;
+                const newText = ta.value.trim();
+                removeInlineEditor();
+                if (newText && newText !== node.text) {
+                    const newState = setBoxText(history.state, nodeId, newText);
+                    applyEdit(newState, true);
+                }
+            };
+
+            const cancel = () => {
+                if (committed) return;
+                committed = true;
+                removeInlineEditor();
+            };
+
+            ta.addEventListener("keydown", e => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    commit();
+                } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancel();
+                }
+            });
+
+            ta.addEventListener("blur", commit);
+
+            $("#canvasContainer").appendChild(ta);
+            ta.focus();
+            ta.select();
+        }
+
+        function startInPlaceEdgeEdit(edgeIdx, labelPoint) {
+            removeInlineEditor();
+            const edge = history.state.representation.edges[edgeIdx];
+            if (!edge) return;
+
+            const screenPos = diagramToScreen(labelPoint.x, labelPoint.y, panX, panY, zoom);
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "inline-editor";
+            input.value = edge.label || "";
+            input.style.position = "absolute";
+            input.style.left = `${screenPos.x - 60}px`;
+            input.style.top = `${screenPos.y - 14}px`;
+            input.style.width = "120px";
+            input.style.height = "28px";
+            input.style.fontSize = `${Math.max(11, 12 * zoom)}px`;
+            input.style.zIndex = "25";
+
+            let committed = false;
+            const commit = () => {
+                if (committed) return;
+                committed = true;
+                const newLabel = input.value.trim();
+                removeInlineEditor();
+                if (newLabel !== (edge.label || '')) {
+                    const newState = setEdgeLabel(history.state, edgeIdx, newLabel);
+                    applyEdit(newState, true);
+                }
+            };
+
+            const cancel = () => {
+                if (committed) return;
+                committed = true;
+                removeInlineEditor();
+            };
+
+            input.addEventListener("keydown", e => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    commit();
+                } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancel();
+                }
+            });
+
+            input.addEventListener("blur", commit);
+
+            $("#canvasContainer").appendChild(input);
+            input.focus();
+            input.select();
+        }
+
+        // --- Drag Group Interaction ---
+        function startDragGroup(anchorNodeId, e) {
+            const svgEl = $("#flowchartSvg");
+            const rect = svgEl.getBoundingClientRect();
+            const startDiag = screenToDiagram(e.clientX - rect.left, e.clientY - rect.top, panX, panY, zoom);
+
+            const initialPositions = history.state.positions;
+            const origPositions = {};
+            selectedBoxIds.forEach(id => {
+                if (initialPositions[id]) {
+                    origPositions[id] = { ...initialPositions[id] };
+                }
+            });
+
+            dragGroupState = {
+                startDiagX: startDiag.x,
+                startDiagY: startDiag.y,
+                basePositions: initialPositions,
+                currentPositions: { ...initialPositions },
+                origPositions,
+                didMove: false
+            };
+            window.addEventListener("pointermove", onDragGroupMove);
+            window.addEventListener("pointerup", onDragGroupUp);
+        }
+
+        function onDragGroupMove(e) {
+            if (!dragGroupState) return;
+            const svgEl = $("#flowchartSvg");
+            const rect = svgEl.getBoundingClientRect();
+            const currDiag = screenToDiagram(e.clientX - rect.left, e.clientY - rect.top, panX, panY, zoom);
+
+            const dx = currDiag.x - dragGroupState.startDiagX;
+            const dy = currDiag.y - dragGroupState.startDiagY;
+
+            if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+                dragGroupState.didMove = true;
+            }
+
+            const nextPositions = { ...dragGroupState.basePositions };
+            for (const [id, orig] of Object.entries(dragGroupState.origPositions)) {
+                nextPositions[id] = {
+                    x: Math.round(orig.x + dx),
+                    y: Math.round(orig.y + dy)
+                };
+            }
+            dragGroupState.currentPositions = nextPositions;
+            renderCanvas();
+        }
+
+        function onDragGroupUp() {
+            window.removeEventListener("pointermove", onDragGroupMove);
+            window.removeEventListener("pointerup", onDragGroupUp);
+            if (dragGroupState && dragGroupState.didMove) {
+                let finalPositions = dragGroupState.currentPositions;
+                if (isSnapGrid) {
+                    finalPositions = snapPositionsToGrid(finalPositions, Array.from(selectedBoxIds), 20);
+                }
+                applyEdit({ representation: history.state.representation, positions: finalPositions }, false);
+            }
+            dragGroupState = null;
+            renderCanvas();
+        }
+
+        // --- Arrow Drawing Interaction ---
+        function startConnect(sourceId, startDiagX, startDiagY, e, fromSide = null) {
+            connectState = { sourceId, startX: startDiagX, startY: startDiagY, fromSide };
+            const temp = $("#tempEdge");
+            temp.setAttribute("d", `M ${startDiagX} ${startDiagY} L ${startDiagX} ${startDiagY}`);
+            temp.style.display = "block";
+
+            window.addEventListener("pointermove", onConnectMove);
+            window.addEventListener("pointerup", onConnectUp);
+        }
+
+        function onConnectMove(e) {
+            if (!connectState) return;
+            const svgEl = $("#flowchartSvg");
+            const rect = svgEl.getBoundingClientRect();
+            const currDiag = screenToDiagram(e.clientX - rect.left, e.clientY - rect.top, panX, panY, zoom);
+
+            const temp = $("#tempEdge");
+            temp.setAttribute("d", `M ${connectState.startX} ${connectState.startY} L ${Math.round(currDiag.x)} ${Math.round(currDiag.y)}`);
+
+            const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+            const targetGroup = targetEl ? targetEl.closest(".box-group") : null;
+            document.querySelectorAll(".box-group").forEach(bg => bg.classList.remove("target-highlight"));
+
+            if (targetGroup) {
+                const targetId = targetGroup.getAttribute("data-node-id");
+                if (targetId && targetId !== connectState.sourceId) {
+                    targetGroup.classList.add("target-highlight");
+                }
+            }
+        }
+
+        function onConnectUp(e) {
+            window.removeEventListener("pointermove", onConnectMove);
+            window.removeEventListener("pointerup", onConnectUp);
+            $("#tempEdge").style.display = "none";
+            document.querySelectorAll(".box-group").forEach(bg => bg.classList.remove("target-highlight"));
+
+            if (!connectState) return;
+            const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+            const targetGroup = targetEl ? targetEl.closest(".box-group") : null;
+
+            if (targetGroup) {
+                const targetId = targetGroup.getAttribute("data-node-id");
+                if (targetId) {
+                    const svgEl = $("#flowchartSvg");
+                    const rect = svgEl.getBoundingClientRect();
+                    const currDiag = screenToDiagram(e.clientX - rect.left, e.clientY - rect.top, panX, panY, zoom);
+
+                    const targetPos = history.state.positions[targetId] || { x: 0, y: 0 };
+                    const dimsMap = getDimsMap();
+                    const targetDims = dimsMap.get(targetId) || { width: 140, height: 60 };
+                    const toSide = getNearestSide(targetPos, targetDims, currDiag);
+
+                    const sides = {
+                        fromSide: connectState.fromSide || undefined,
+                        toSide: toSide || undefined
+                    };
+
+                    const res = addEdge(history.state, connectState.sourceId, targetId, undefined, sides);
+                    if (!res.success) {
+                        showToast(res.reason);
+                    } else {
+                        applyEdit(res.state, true);
+                        if (res.suggestedLabel) {
+                            showToast(`Connected with label "${res.suggestedLabel}"`);
+                        }
+                    }
+                }
+            }
+            connectState = null;
+        }
+
+        // --- Setup Event Listeners ---
+        function setupEvents() {
+            const svgEl = $("#flowchartSvg");
+
+            // Tool Toggle Buttons: Select (V) and Hand (H)
+            $("#selectToolBtn").addEventListener("click", () => {
+                spacePrevTool = null;
+                setTool('select');
+            });
+            $("#handToolBtn").addEventListener("click", () => {
+                spacePrevTool = null;
+                setTool('hand');
+            });
+
+            // Pan and Zoom: Wheel
+            svgEl.addEventListener("wheel", e => {
+                e.preventDefault();
+                const rect = svgEl.getBoundingClientRect();
+                const sx = e.clientX - rect.left;
+                const sy = e.clientY - rect.top;
+                const factor = e.deltaY < 0 ? 1.15 : (1 / 1.15);
+                const res = zoomAroundPoint(zoom, zoom * factor, sx, sy, panX, panY, 0.25, 3.0);
+                zoom = res.zoom;
+                panX = res.panX;
+                panY = res.panY;
+                updateViewportTransform();
+            }, { passive: false });
+
+            // Prevent browser autoscroll icon when middle-clicking canvas
+            svgEl.addEventListener("mousedown", e => {
+                if (e.button === 1) e.preventDefault();
+            });
+
+            // Pointer down on canvas: Pan (Space+drag, middle button, or Hand tool) or Marquee Selection (drag empty canvas in Select tool)
+            svgEl.addEventListener("pointerdown", e => {
+                const isBg = e.target === svgEl || e.target === $("#viewportGroup") || e.target === $("#edgesLayer") || e.target === $("#gridOverlay");
+
+                // Pan condition: middle mouse button, Hand tool, or Space held down
+                const willPan = shouldPan(currentTool, isSpacePressed, e.button);
+
+                if (willPan) {
+                    isPanning = true;
+                    panStartClient = { x: e.clientX, y: e.clientY };
+                    panStartPan = { x: panX, y: panY };
+                    svgEl.classList.add("panning");
+                    svgEl.style.cursor = getToolCursor(currentTool, isSpacePressed, isPanning);
+                    window.addEventListener("pointermove", onPanMove);
+                    window.addEventListener("pointerup", onPanUp);
+                    return;
+                }
+
+                // If not background, ignore
+                if (!isBg) return;
+
+                // Left click on empty canvas in Select tool: Start Marquee Selection (no Shift needed)
+                if (e.button === 0 && currentTool === 'select') {
+                    const rect = svgEl.getBoundingClientRect();
+                    const diag = screenToDiagram(e.clientX - rect.left, e.clientY - rect.top, panX, panY, zoom);
+
+                    marqueeState = {
+                        startDiagX: diag.x,
+                        startDiagY: diag.y,
+                        startClientX: e.clientX,
+                        startClientY: e.clientY,
+                        isShift: e.shiftKey
+                    };
+                    const mRect = $("#marqueeRect");
+                    mRect.setAttribute("x", diag.x);
+                    mRect.setAttribute("y", diag.y);
+                    mRect.setAttribute("width", 0);
+                    mRect.setAttribute("height", 0);
+                    mRect.style.display = "block";
+                    svgEl.classList.add("marquee-mode");
+
+                    window.addEventListener("pointermove", onMarqueeMove);
+                    window.addEventListener("pointerup", onMarqueeUp);
+                }
+            });
+
+            function onPanMove(e) {
+                if (!isPanning) return;
+                panX = Math.round(panStartPan.x + (e.clientX - panStartClient.x));
+                panY = Math.round(panStartPan.y + (e.clientY - panStartClient.y));
+                updateViewportTransform();
+            }
+
+            function onPanUp() {
+                isPanning = false;
+                svgEl.classList.remove("panning");
+                svgEl.style.cursor = getToolCursor(currentTool, isSpacePressed, isPanning);
+                window.removeEventListener("pointermove", onPanMove);
+                window.removeEventListener("pointerup", onPanUp);
+            }
+
+            function onMarqueeMove(e) {
+                if (!marqueeState) return;
+                const rect = svgEl.getBoundingClientRect();
+                const diag = screenToDiagram(e.clientX - rect.left, e.clientY - rect.top, panX, panY, zoom);
+
+                const minX = Math.min(marqueeState.startDiagX, diag.x);
+                const maxX = Math.max(marqueeState.startDiagX, diag.x);
+                const minY = Math.min(marqueeState.startDiagY, diag.y);
+                const maxY = Math.max(marqueeState.startDiagY, diag.y);
+
+                const mRect = $("#marqueeRect");
+                mRect.setAttribute("x", minX);
+                mRect.setAttribute("y", minY);
+                mRect.setAttribute("width", Math.max(1, maxX - minX));
+                mRect.setAttribute("height", Math.max(1, maxY - minY));
+            }
+
+            function onMarqueeUp(e) {
+                window.removeEventListener("pointermove", onMarqueeMove);
+                window.removeEventListener("pointerup", onMarqueeUp);
+                $("#marqueeRect").style.display = "none";
+                svgEl.classList.remove("marquee-mode");
+
+                if (!marqueeState) return;
+                const rect = svgEl.getBoundingClientRect();
+                const diag = screenToDiagram(e.clientX - rect.left, e.clientY - rect.top, panX, panY, zoom);
+
+                const minX = Math.min(marqueeState.startDiagX, diag.x);
+                const maxX = Math.max(marqueeState.startDiagX, diag.x);
+                const minY = Math.min(marqueeState.startDiagY, diag.y);
+                const maxY = Math.max(marqueeState.startDiagY, diag.y);
+
+                // If user dragged a rectangle (> 4px in either dimension)
+                if (Math.abs(maxX - minX) > 4 || Math.abs(maxY - minY) > 4) {
+                    const hits = boxesInRect(history.state.positions, getDimsMap(), { minX, minY, maxX, maxY });
+                    if (!marqueeState.isShift && !e.shiftKey) {
+                        selectedBoxIds.clear();
+                    }
+                    hits.forEach(id => selectedBoxIds.add(id));
+                    selectedEdgeIndex = null;
+                    updateSelectionUI();
+                    renderCanvas();
+                } else {
+                    // Clicked empty canvas without dragging: clear selection
+                    deselectAll();
+                }
+                marqueeState = null;
+            }
+
+            // Click on empty canvas deselects (Select tool only)
+            svgEl.addEventListener("click", e => {
+                if (currentTool === 'hand' || isSpacePressed) return;
+                const isBg = e.target === svgEl || e.target === $("#viewportGroup") || e.target === $("#edgesLayer") || e.target === $("#gridOverlay");
+                if (isBg) {
+                    deselectAll();
+                }
+            });
+
+            // Double click on empty canvas creates a Process box at that spot (Select tool only)
+            svgEl.addEventListener("dblclick", e => {
+                if (currentTool === 'hand' || isSpacePressed) return;
+                const isBg = e.target === svgEl || e.target === $("#viewportGroup") || e.target === $("#edgesLayer") || e.target === $("#gridOverlay");
+                if (isBg) {
+                    const rect = svgEl.getBoundingClientRect();
+                    const diag = screenToDiagram(e.clientX - rect.left, e.clientY - rect.top, panX, panY, zoom);
+                    let targetPos = { x: Math.round(diag.x), y: Math.round(diag.y) };
+                    if (isSnapGrid) targetPos = snapToGrid(targetPos, 20);
+
+                    const newState = addBox(history.state, 'proc', 'Step', targetPos);
+                    applyEdit(newState, true);
+                    const newNodes = newState.representation.nodes;
+                    const newest = newNodes[newNodes.length - 1];
+                    if (newest) {
+                        selectedBoxIds.clear();
+                        selectedBoxIds.add(newest.id);
+                        selectedEdgeIndex = null;
+                        updateSelectionUI();
+                        renderCanvas();
+                    }
+                }
+            });
+
+            // Snap to Grid Toggle
+            $("#snapGridBtn").addEventListener("click", () => {
+                isSnapGrid = !isSnapGrid;
+                const btn = $("#snapGridBtn");
+                const gridOverlay = $("#gridOverlay");
+                btn.setAttribute("aria-pressed", isSnapGrid ? "true" : "false");
+                if (isSnapGrid) {
+                    btn.textContent = "Grid: On";
+                    btn.classList.add("active-toggle");
+                    gridOverlay.style.display = "block";
+                    showToast("Grid snap enabled (20 px)");
+                } else {
+                    btn.textContent = "Grid: Off";
+                    btn.classList.remove("active-toggle");
+                    gridOverlay.style.display = "none";
+                }
+            });
+
+            // Zoom Buttons
+            $("#zoomInBtn").addEventListener("click", () => {
+                const rect = svgEl.getBoundingClientRect();
+                const res = zoomAroundPoint(zoom, zoom * 1.2, rect.width / 2, rect.height / 2, panX, panY, 0.25, 3.0);
+                zoom = res.zoom;
+                panX = res.panX;
+                panY = res.panY;
+                updateViewportTransform();
+            });
+
+            $("#zoomOutBtn").addEventListener("click", () => {
+                const rect = svgEl.getBoundingClientRect();
+                const res = zoomAroundPoint(zoom, zoom / 1.2, rect.width / 2, rect.height / 2, panX, panY, 0.25, 3.0);
+                zoom = res.zoom;
+                panX = res.panX;
+                panY = res.panY;
+                updateViewportTransform();
+            });
+
+            $("#fitScreenBtn").addEventListener("click", fitToScreen);
+
+            // Alignment Handlers
+            const applyAlignment = alignType => {
+                if (selectedBoxIds.size < 2) return;
+                let newPositions = alignBoxes(history.state.positions, getDimsMap(), Array.from(selectedBoxIds), alignType);
+                if (isSnapGrid) {
+                    newPositions = snapPositionsToGrid(newPositions, Array.from(selectedBoxIds), 20);
+                }
+                applyEdit({ representation: history.state.representation, positions: newPositions }, false);
+            };
+
+            $("#alignLeftBtn").addEventListener("click", () => applyAlignment('left'));
+            $("#alignCenterBtn").addEventListener("click", () => applyAlignment('center'));
+            $("#alignRightBtn").addEventListener("click", () => applyAlignment('right'));
+            $("#alignTopBtn").addEventListener("click", () => applyAlignment('top'));
+            $("#alignMiddleBtn").addEventListener("click", () => applyAlignment('middle'));
+            $("#alignBottomBtn").addEventListener("click", () => applyAlignment('bottom'));
+
+            // Distribute Handlers
+            const applyDistribution = dir => {
+                if (selectedBoxIds.size < 3) return;
+                let newPositions = distributeBoxes(history.state.positions, getDimsMap(), Array.from(selectedBoxIds), dir);
+                if (isSnapGrid) {
+                    newPositions = snapPositionsToGrid(newPositions, Array.from(selectedBoxIds), 20);
+                }
+                applyEdit({ representation: history.state.representation, positions: newPositions }, false);
+            };
+
+            $("#distribHBtn").addEventListener("click", () => applyDistribution('horizontal'));
+            $("#distribVBtn").addEventListener("click", () => applyDistribution('vertical'));
+
+            // Auto Layout with direction and spacing
+            $("#autoLayoutBtn").addEventListener("click", () => {
+                const dir = $("#layoutDirection").value;
+                const sp = $("#layoutSpacing").value;
+                const newPositions = autoLayout(history.state.representation, { direction: dir, spacing: sp });
+                const newEdgeSides = computeAllEdgeSides(history.state.representation, newPositions);
+                applyEdit({ representation: history.state.representation, positions: newPositions, edgeSides: newEdgeSides }, false);
+                fitToScreen();
+            });
+
+            // Single Box Inspector
+            $("#inspectBoxText").addEventListener("input", e => {
+                if (selectedBoxIds.size !== 1) return;
+                const nodeId = Array.from(selectedBoxIds)[0];
+                const newState = setBoxText(history.state, nodeId, e.target.value);
+                applyEdit(newState, true);
+            });
+
+            $("#inspectBoxKind").addEventListener("change", e => {
+                if (selectedBoxIds.size !== 1) return;
+                const nodeId = Array.from(selectedBoxIds)[0];
+                const newState = setBoxKind(history.state, nodeId, e.target.value);
+                applyEdit(newState, true);
+            });
+
+            $("#deleteBoxBtn").addEventListener("click", () => {
+                if (selectedBoxIds.size !== 1) return;
+                const nodeId = Array.from(selectedBoxIds)[0];
+                selectedBoxIds.clear();
+                const newState = deleteBox(history.state, nodeId);
+                applyEdit(newState, true);
+            });
+
+            // Multi-Box Inspector Delete All
+            $("#deleteMultiBtn").addEventListener("click", () => {
+                if (selectedBoxIds.size === 0) return;
+                const ids = Array.from(selectedBoxIds);
+                selectedBoxIds.clear();
+                const newState = deleteGroup(history.state, ids);
+                applyEdit(newState, true);
+            });
+
+            // Edge Inspector
+            $("#inspectEdgeLabel").addEventListener("input", e => {
+                if (selectedEdgeIndex === null) return;
+                const newState = setEdgeLabel(history.state, selectedEdgeIndex, e.target.value);
+                applyEdit(newState, true);
+            });
+
+            $("#inspectEdgeFrom").addEventListener("change", e => {
+                if (selectedEdgeIndex === null) return;
+                const newFrom = e.target.value;
+                const currentEdge = history.state.representation.edges[selectedEdgeIndex];
+                const res = setEdgeEnds(history.state, selectedEdgeIndex, newFrom, currentEdge.to);
+                if (!res.success) {
+                    showToast(res.reason);
+                    e.target.value = currentEdge.from;
+                } else {
+                    applyEdit(res.state, true);
+                }
+            });
+
+            $("#inspectEdgeTo").addEventListener("change", e => {
+                if (selectedEdgeIndex === null) return;
+                const newTo = e.target.value;
+                const currentEdge = history.state.representation.edges[selectedEdgeIndex];
+                const res = setEdgeEnds(history.state, selectedEdgeIndex, currentEdge.from, newTo);
+                if (!res.success) {
+                    showToast(res.reason);
+                    e.target.value = currentEdge.to;
+                } else {
+                    applyEdit(res.state, true);
+                }
+            });
+
+            $("#deleteEdgeBtn").addEventListener("click", () => {
+                if (selectedEdgeIndex === null) return;
+                const idx = selectedEdgeIndex;
+                selectedEdgeIndex = null;
+                const newState = deleteEdge(history.state, idx);
+                applyEdit(newState, true);
+            });
+
+            // Add Shapes
+            $("#addStartBtn").addEventListener("click", () => applyEdit(addBox(history.state, 'start', 'Start'), true));
+            $("#addEndBtn").addEventListener("click", () => applyEdit(addBox(history.state, 'end', 'End'), true));
+            $("#addProcBtn").addEventListener("click", () => applyEdit(addBox(history.state, 'proc', 'Step'), true));
+            $("#addIoBtn").addEventListener("click", () => applyEdit(addBox(history.state, 'io', 'Input x'), true));
+            $("#addDecBtn").addEventListener("click", () => applyEdit(addBox(history.state, 'dec', 'Condition ?'), true));
+
+            // Undo / Redo / Reset
+            $("#undoBtn").addEventListener("click", () => {
+                if (!history.canUndo) return;
+                history.undo();
+                saveAutosave();
+                updateHistoryButtons();
+                updateSelectionUI();
+                renderCanvas();
+                scheduleGenerate();
+            });
+
+            $("#redoBtn").addEventListener("click", () => {
+                if (!history.canRedo) return;
+                history.redo();
+                saveAutosave();
+                updateHistoryButtons();
+                updateSelectionUI();
+                renderCanvas();
+                scheduleGenerate();
+            });
+
+            $("#resetBtn").addEventListener("click", () => {
+                history = createHistory(originalLoadedState);
+                saveAutosave();
+                selectedBoxIds.clear();
+                selectedEdgeIndex = null;
+                $("#sourceLabel").textContent = baseSourceLabel;
+                updateHistoryButtons();
+                updateSelectionUI();
+                renderCanvas();
+                fitToScreen();
+                scheduleGenerate();
+            });
+
+            $("#copyPseudoBtn").addEventListener("click", async () => {
+                if (!lastPseudocode) return;
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(lastPseudocode);
+                    } else {
+                        const ta = document.createElement("textarea");
+                        ta.value = lastPseudocode;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(ta);
+                    }
+                    const btn = $("#copyPseudoBtn");
+                    const orig = btn.textContent;
+                    btn.textContent = "Copied!";
+                    setTimeout(() => { btn.textContent = orig; }, 1500);
+                } catch (e) {
+                    showToast("Failed to copy pseudocode");
+                }
+            });
+
+            // Download Pseudocode as .txt
+            $("#downloadPseudoBtn").addEventListener("click", () => {
+                if (!isDownloadEnabled(lastPseudocode)) return;
+                try {
+                    const blob = new Blob([lastPseudocode], { type: "text/plain;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = getDownloadPseudocodeFilename();
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                } catch (e) {
+                    showToast("Failed to download pseudocode");
+                }
+            });
+
+            // Done button handoff to Review (#/result)
+            $("#doneBtn").addEventListener("click", handleDone);
+            window.addEventListener("pagehide", () => {
+                flushPendingSave();
+            });
+
+            // Handoff Notice: Restore Earlier Edits & Dismiss
+            const restoreEarlierEditsBtn = $("#restoreEarlierEditsBtn");
+            if (restoreEarlierEditsBtn) {
+                restoreEarlierEditsBtn.addEventListener("click", () => {
+                    swapDiagramWithPrevious();
+                });
+            }
+            const dismissHandoffBtn = $("#dismissHandoffBtn");
+            if (dismissHandoffBtn) {
+                dismissHandoffBtn.addEventListener("click", () => {
+                    const noticeEl = $("#handoffNotice");
+                    if (noticeEl) noticeEl.style.display = "none";
+                });
+            }
+
+            // Shortcuts Modal
+            $("#shortcutsBtn").addEventListener("click", () => {
+                $("#shortcutsModal").style.display = "flex";
+            });
+            $("#closeShortcutsBtn").addEventListener("click", () => {
+                $("#shortcutsModal").style.display = "none";
+            });
+            $("#shortcutsModal").addEventListener("click", e => {
+                if (e.target === $("#shortcutsModal")) {
+                    $("#shortcutsModal").style.display = "none";
+                }
+            });
+
+            // Global Keydown Shortcuts
+            window.addEventListener("keydown", e => {
+                const isInput = isEditableElement(document.activeElement);
+
+                // Space key: temporarily switches to Hand tool
+                if (e.code === 'Space' && !isInput) {
+                    e.preventDefault();
+                    if (!e.repeat) {
+                        if (spacePrevTool === null) {
+                            spacePrevTool = currentTool;
+                        }
+                        isSpacePressed = true;
+                        setTool('hand');
+                    }
+                    return;
+                }
+
+                // V and H tool switching (when not typing in fields)
+                if (!isInput && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                    if (e.key === 'v' || e.key === 'V') {
+                        e.preventDefault();
+                        spacePrevTool = null;
+                        setTool('select');
+                        return;
+                    }
+                    if (e.key === 'h' || e.key === 'H') {
+                        e.preventDefault();
+                        spacePrevTool = null;
+                        setTool('hand');
+                        return;
+                    }
+                }
+
+                // Esc: deselect or close modal
+                if (e.key === 'Escape') {
+                    if ($("#shortcutsModal").style.display === "flex") {
+                        $("#shortcutsModal").style.display = "none";
+                        return;
+                    }
+                    removeInlineEditor();
+                    deselectAll();
+                    return;
+                }
+
+                // Ctrl+A / Cmd+A: Select All Boxes
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !isInput) {
+                    e.preventDefault();
+                    selectedBoxIds.clear();
+                    history.state.representation.nodes.forEach(n => selectedBoxIds.add(n.id));
+                    selectedEdgeIndex = null;
+                    updateSelectionUI();
+                    renderCanvas();
+                    return;
+                }
+
+                // Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        if (history.canRedo) $("#redoBtn").click();
+                    } else {
+                        if (history.canUndo) $("#undoBtn").click();
+                    }
+                    return;
+                }
+
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+                    e.preventDefault();
+                    if (history.canRedo) $("#redoBtn").click();
+                    return;
+                }
+
+                // Ctrl+D: Duplicate group or single box, keeping arrows between copied boxes
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+                    if (!isInput && selectedBoxIds.size > 0) {
+                        e.preventDefault();
+                        const res = duplicateGroup(history.state, Array.from(selectedBoxIds), { x: 40, y: 40 });
+                        applyEdit(res, true);
+                        selectedBoxIds.clear();
+                        if (Array.isArray(res.newIds)) {
+                            res.newIds.forEach(id => selectedBoxIds.add(id));
+                        }
+                        updateSelectionUI();
+                        renderCanvas();
+                    }
+                    return;
+                }
+
+                // Delete / Backspace removes selected group or arrow ONLY when not in text input
+                if (!isInput && (e.key === 'Delete' || e.key === 'Backspace')) {
+                    if (selectedBoxIds.size > 0) {
+                        e.preventDefault();
+                        const ids = Array.from(selectedBoxIds);
+                        selectedBoxIds.clear();
+                        const newState = deleteGroup(history.state, ids);
+                        applyEdit(newState, true);
+                        return;
+                    }
+                    if (selectedEdgeIndex !== null) {
+                        e.preventDefault();
+                        $("#deleteEdgeBtn").click();
+                        return;
+                    }
+                }
+
+                // Arrow keys nudge selected group
+                if (!isInput && selectedBoxIds.size > 0 && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    e.preventDefault();
+                    const step = e.shiftKey ? 50 : 10;
+                    let dx = 0, dy = 0;
+                    if (e.key === 'ArrowUp') dy = -step;
+                    if (e.key === 'ArrowDown') dy = step;
+                    if (e.key === 'ArrowLeft') dx = -step;
+                    if (e.key === 'ArrowRight') dx = step;
+
+                    let newPositions = moveGroup(history.state.positions, Array.from(selectedBoxIds), dx, dy);
+                    if (isSnapGrid) {
+                        newPositions = snapPositionsToGrid(newPositions, Array.from(selectedBoxIds), 20);
+                    }
+                    applyEdit({ representation: history.state.representation, positions: newPositions }, false);
+                }
+            });
+
+            window.addEventListener("keyup", e => {
+                if (e.code === 'Space') {
+                    isSpacePressed = false;
+                    if (spacePrevTool !== null) {
+                        const restore = spacePrevTool;
+                        spacePrevTool = null;
+                        setTool(restore);
+                    } else {
+                        svgEl.style.cursor = getToolCursor(currentTool, isSpacePressed, isPanning);
+                    }
+                }
+            });
+
+            // Window blur: clear Space held state and restore previous tool
+            window.addEventListener("blur", () => {
+                isSpacePressed = false;
+                if (spacePrevTool !== null) {
+                    const restore = spacePrevTool;
+                    spacePrevTool = null;
+                    setTool(restore);
+                }
+                if (isPanning) {
+                    isPanning = false;
+                    svgEl.classList.remove("panning");
+                    svgEl.style.cursor = getToolCursor(currentTool, isSpacePressed, isPanning);
+                    window.removeEventListener("pointermove", onPanMove);
+                    window.removeEventListener("pointerup", onPanUp);
+                }
+            });
+
+            // Initialize tool UI state
+            setTool('select');
+        }
+
+        // --- Debounced Server Generate Call ---
+        function scheduleGenerate() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(callGenerate, 300);
+        }
+
+        async function callGenerate() {
+            const errEl = $("#err");
+            errEl.style.display = "none";
+
+            try {
+                const payload = { representation: history.state.representation };
+                const res = await fetch(API_GENERATE, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    const msg = (data && data.error && data.error.message) || ("Server error (" + res.status + ")");
+                    errEl.textContent = "Error: " + msg;
+                    errEl.style.display = "block";
+                    return;
+                }
+
+                lastPseudocode = data.pseudocode || "";
+                $("#pseudo").textContent = lastPseudocode;
+                updateDownloadButtonUI();
+
+                const warnList = $("#warns");
+                warnList.innerHTML = "";
+                if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+                    data.warnings.forEach(w => {
+                        const li = document.createElement("li");
+                        li.textContent = w;
+                        warnList.appendChild(li);
+                    });
+                }
+
+                const chips = $("#chips");
+                chips.innerHTML = "";
+                const chipItems = [];
+                chipItems.push({
+                    text: data.valid ? "Valid flowchart" : "Invalid structure",
+                    cls: data.valid ? "valid" : "invalid"
+                });
+                if (typeof data.confidence === "number") {
+                    chipItems.push({ text: "Confidence " + Math.round(data.confidence * 100) + "%" });
+                }
+                chipItems.push({ text: history.state.representation.nodes.length + " boxes" });
+                chipItems.push({ text: history.state.representation.edges.length + " arrows" });
+
+                chipItems.forEach(ci => {
+                    const span = document.createElement("span");
+                    span.className = "chip" + (ci.cls ? " " + ci.cls : "");
+                    span.textContent = ci.text;
+                    chips.appendChild(span);
+                });
+            } catch (err) {
+                errEl.textContent = "Could not reach the server. Make sure the server is running.";
+                errEl.style.display = "block";
+            }
+        }
+
+        // Theme Switcher Logic (shared with index.html)
+        function applyTheme(theme) {
+            if (theme !== "light" && theme !== "dark") theme = "system";
+            document.documentElement.setAttribute("data-theme", theme);
+            try {
+                localStorage.setItem("sketchpiler_theme", theme);
+            } catch (e) { }
+            document.querySelectorAll(".theme-btn").forEach(function (btn) {
+                var active = btn.getAttribute("data-theme-val") === theme;
+                btn.setAttribute("aria-pressed", active ? "true" : "false");
+                btn.classList.toggle("active", active);
+            });
+        }
+
+        document.querySelectorAll(".theme-btn").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                applyTheme(btn.getAttribute("data-theme-val"));
+            });
+        });
+
+        try {
+            var initialTheme = localStorage.getItem("sketchpiler_theme") || "system";
+            applyTheme(initialTheme);
+        } catch (e) {
+            applyTheme("system");
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
