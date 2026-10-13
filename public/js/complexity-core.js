@@ -42,15 +42,58 @@ export function splitStatements(text) {
     return result;
 }
 
-/**
- * Strips question marks and trailing whitespace from a condition.
- * @param {string} text
- * @returns {string}
- */
-export function cleanCondition(text) {
+// normalizeCondition: keep in sync with the other copy
+export function normalizeCondition(text) {
     if (!text || typeof text !== 'string') return '';
-    return text.trim().replace(/\?+\s*$/, '').trim();
+    const original = text.trim();
+    if (!original) return '';
+
+    let s = original;
+
+    // Case-insensitively remove ONE leading "if" or "while" only when it is a whole word
+    // (followed by whitespace or "("). "iffy > 3" and "if" alone stay unchanged.
+    s = s.replace(/^(?:if|while)(?=\s|\()/i, '').trim();
+
+    // Remove trailing "?" and spaces
+    s = s.replace(/[\s?]*\?[\s?]*$/, '').trim();
+
+    // Remove ONE pair of outer parentheses only when they are balanced and wrap the whole condition
+    if (s.startsWith('(') && s.endsWith(')')) {
+        let depth = 0;
+        let wrapsAll = true;
+        for (let i = 0; i < s.length; i++) {
+            if (s[i] === '(') {
+                depth++;
+            } else if (s[i] === ')') {
+                depth--;
+                if (depth === 0 && i < s.length - 1) {
+                    wrapsAll = false;
+                    break;
+                }
+            }
+        }
+        if (wrapsAll && depth === 0) {
+            s = s.slice(1, -1).trim();
+        }
+    }
+
+    // Map the Unicode symbols ≤ ≥ ≠ to <= >= !=. Collapse repeated spaces.
+    s = s
+        .replace(/≤/g, '<=')
+        .replace(/≥/g, '>=')
+        .replace(/≠/g, '!=')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    // If the result would be empty, return the original text trimmed.
+    if (!s) {
+        return original;
+    }
+
+    return s;
 }
+
+export const cleanCondition = normalizeCondition;
 
 /**
  * Detects cycles and back edges in the flowchart starting from the start box.
@@ -187,7 +230,7 @@ function analyzeLoopPattern(loop, nodeMap, allNodes) {
         };
     }
 
-    const rawCond = cleanCondition(headerNode.text);
+    const rawCond = normalizeCondition(headerNode.text);
     if (!rawCond) {
         return {
             pattern: 'unknown',

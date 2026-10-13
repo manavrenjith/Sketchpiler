@@ -42,9 +42,58 @@ function formatIoNode(text: string): string {
   return trimmed;
 }
 
-function cleanCondition(text: string): string {
-  return text.trim().replace(/\?+\s*$/, '').trim();
+// normalizeCondition: keep in sync with the other copy
+export function normalizeCondition(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  const original = text.trim();
+  if (!original) return '';
+
+  let s = original;
+
+  // Case-insensitively remove ONE leading "if" or "while" only when it is a whole word
+  // (followed by whitespace or "("). "iffy > 3" and "if" alone stay unchanged.
+  s = s.replace(/^(?:if|while)(?=\s|\()/i, '').trim();
+
+  // Remove trailing "?" and spaces
+  s = s.replace(/[\s?]*\?[\s?]*$/, '').trim();
+
+  // Remove ONE pair of outer parentheses only when they are balanced and wrap the whole condition
+  if (s.startsWith('(') && s.endsWith(')')) {
+    let depth = 0;
+    let wrapsAll = true;
+    for (let i = 0; i < s.length; i++) {
+      if (s[i] === '(') {
+        depth++;
+      } else if (s[i] === ')') {
+        depth--;
+        if (depth === 0 && i < s.length - 1) {
+          wrapsAll = false;
+          break;
+        }
+      }
+    }
+    if (wrapsAll && depth === 0) {
+      s = s.slice(1, -1).trim();
+    }
+  }
+
+  // Map the Unicode symbols ≤ ≥ ≠ to <= >= !=. Collapse repeated spaces.
+  s = s
+    .replace(/≤/g, '<=')
+    .replace(/≥/g, '>=')
+    .replace(/≠/g, '!=')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // If the result would be empty, return the original text trimmed.
+  if (!s) {
+    return original;
+  }
+
+  return s;
 }
+
+export const cleanCondition = normalizeCondition;
 
 export function generatePseudocode(rep: FlowchartRepresentation): GenerateResult {
   const warnings: string[] = [];
@@ -191,7 +240,7 @@ export function generatePseudocode(rep: FlowchartRepresentation): GenerateResult
       }
 
       if (node.type === 'dec') {
-        const condition = cleanCondition(node.text);
+        const condition = normalizeCondition(node.text);
 
         if (edges.length < 2) {
           warnings.push(`Decision node ${curr} has fewer than 2 edges; treating as sequential`);
@@ -294,7 +343,7 @@ export function generatePseudocode(rep: FlowchartRepresentation): GenerateResult
           gotoLines.push(`  ${s}`);
         }
       } else if (node.type === 'dec') {
-        const cond = cleanCondition(node.text);
+        const cond = normalizeCondition(node.text);
         const edges = outgoingMap.get(node.id) || [];
         for (const edge of edges) {
           const lbl = edge.label ? ` (${edge.label})` : '';

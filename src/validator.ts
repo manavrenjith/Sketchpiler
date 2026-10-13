@@ -56,7 +56,20 @@ export function validateRepresentation(
     }
   }
 
-  // 4. No orphan nodes (unreachable from start)
+  // 4. Advisory: Non-decision, non-end boxes with 2 or more outgoing arrows
+  const advisoryWarnings: string[] = [];
+  for (const node of rep.nodes) {
+    if (node.type !== 'dec' && node.type !== 'end') {
+      const outEdges = outgoingMap.get(node.id) || [];
+      if (outEdges.length >= 2) {
+        advisoryWarnings.push(
+          `${node.id} (${node.text}) has ${outEdges.length} outgoing arrows; only decisions branch.`
+        );
+      }
+    }
+  }
+
+  // 5. No orphan nodes (unreachable from start)
   if (startNodes.length > 0) {
     const reachable = new Set<string>();
     const queue: string[] = [];
@@ -84,7 +97,7 @@ export function validateRepresentation(
     }
   }
 
-  const allWarnings = [...extraWarnings, ...structuralWarnings];
+  const allWarnings = [...extraWarnings, ...structuralWarnings, ...advisoryWarnings];
 
   // 5. Confidence score computation
   // Starts at 1.0; deducted by warnings and uncertain flags.

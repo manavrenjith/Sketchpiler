@@ -26,6 +26,7 @@ export interface ComplexityAnalysis {
 export function isAssignment(stmt: string): boolean;
 export function splitStatements(text: string): string[];
 export function cleanCondition(text: string): string;
+export function normalizeCondition(text: string): string;
 
 export function detectLoops(representation: {
     nodes?: Array<{ id: string; type: string; text?: string }>;
