@@ -565,6 +565,17 @@ OUTPUT sum</code></pre>
                         </details>
                         <p class="complexity-footnote">Heuristic estimate read from the diagram's loops. Check it against your own analysis. Space counts extra variables, not the input.</p>
                     </div>
+                    <div class="card" id="optimizeCard" style="display:none;margin-top:var(--space-4)">
+                        <div class="card-header">
+                            <div class="optimize-title-wrap">
+                                <strong>Optimize</strong>
+                                <span class="badge optimize-badge" id="optimizeBadge">Patterns</span>
+                            </div>
+                        </div>
+                        <div class="optimize-body" id="optimizeBody">
+                            <p class="mute" style="margin:0">No safe optimization found. This only checks a few known patterns, so it does not mean the algorithm is already optimal.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
             <details class="card" id="detailsSection" style="margin-top:var(--space-5)">
@@ -621,6 +632,10 @@ OUTPUT sum</code></pre>
     <script type="module">
         import * as ComplexityCore from "/js/complexity-core.js";
         window.ComplexityCore = ComplexityCore;
+    </script>
+    <script type="module">
+        import * as OptimizeCore from "/js/optimize-core.js";
+        window.OptimizeCore = OptimizeCore;
     </script>
     <script type="module">
         import { generateSourceId } from "/js/editor-core.js";
@@ -1092,6 +1107,8 @@ OUTPUT sum</code></pre>
             if (pc) pc.style.display = "none";
             var cc = $("#complexityCard");
             if (cc) cc.style.display = "none";
+            var oc = $("#optimizeCard");
+            if (oc) oc.style.display = "none";
             var grid = $(".result-main-grid");
             if (grid) grid.classList.remove("has-pseudo");
             var genBtn = $("#generatePseudoBtn");
@@ -1154,6 +1171,7 @@ OUTPUT sum</code></pre>
                 if (grid) grid.classList.add("has-pseudo");
 
                 await updateComplexityPanel(rep);
+                await updateOptimizePanel(rep, data.pseudocode);
 
                 var heading = $("#pseudoHeading");
                 if (heading) {
@@ -1250,6 +1268,137 @@ OUTPUT sum</code></pre>
                 cc.classList.add("fade-in");
             } catch (err) {
                 console.warn("Complexity analysis failed:", err);
+            }
+        }
+
+        async function updateOptimizePanel(rep, originalPseudocode) {
+            var oc = $("#optimizeCard");
+            if (!oc) return;
+            try {
+                var mod = window.OptimizeCore;
+                if (!mod) {
+                    mod = await import("/js/optimize-core.js");
+                }
+                var optResult = mod.findOptimizations(rep);
+                var badge = $("#optimizeBadge");
+                var body = $("#optimizeBody");
+                if (!body) return;
+
+                body.textContent = "";
+
+                if (!optResult || !optResult.found || !optResult.suggestions || optResult.suggestions.length === 0) {
+                    if (badge) {
+                        badge.textContent = "None";
+                        badge.className = "badge optimize-badge badge-muted";
+                    }
+                    var p = document.createElement("p");
+                    p.className = "mute";
+                    p.style.margin = "0";
+                    p.textContent = "No safe optimization found. This only checks a few known patterns, so it does not mean the algorithm is already optimal.";
+                    body.appendChild(p);
+                } else {
+                    if (badge) {
+                        var count = optResult.suggestions.length;
+                        badge.textContent = count + " suggestion" + (count > 1 ? "s" : "");
+                        badge.className = "badge optimize-badge badge-estimated";
+                    }
+
+                    for (var i = 0; i < optResult.suggestions.length; i++) {
+                        var s = optResult.suggestions[i];
+                        var item = document.createElement("div");
+                        item.className = "optimize-item";
+
+                        var h = document.createElement("h4");
+                        h.className = "optimize-item-title";
+                        h.textContent = s.title;
+                        item.appendChild(h);
+
+                        var r = document.createElement("p");
+                        r.className = "optimize-item-reason";
+                        r.textContent = s.reason;
+                        item.appendChild(r);
+
+                        var afterPseudoText = "";
+                        try {
+                            var res = await fetch("/api/generate", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ representation: s.rewritten })
+                            });
+                            var data = await res.json();
+                            afterPseudoText = (data && data.pseudocode) || "";
+                        } catch (e) {
+                            afterPseudoText = "(Could not generate after pseudocode)";
+                        }
+
+                        var pair = document.createElement("div");
+                        pair.className = "optimize-pair";
+
+                        var beforeCol = document.createElement("div");
+                        beforeCol.className = "optimize-col";
+                        var bHeading = document.createElement("div");
+                        bHeading.className = "optimize-col-header";
+                        var bStrong = document.createElement("strong");
+                        bStrong.textContent = "Before";
+                        var bMetrics = document.createElement("span");
+                        bMetrics.className = "optimize-metrics";
+                        bMetrics.innerHTML = 'Time: <code>' + (s.before.time.label || '') + '</code> | Space: <code>' + (s.before.space.label || '') + '</code>';
+                        bHeading.appendChild(bStrong);
+                        bHeading.appendChild(bMetrics);
+                        beforeCol.appendChild(bHeading);
+                        var bPre = document.createElement("pre");
+                        bPre.className = "optimize-pseudo";
+                        bPre.textContent = originalPseudocode || "";
+                        beforeCol.appendChild(bPre);
+                        pair.appendChild(beforeCol);
+
+                        var afterCol = document.createElement("div");
+                        afterCol.className = "optimize-col";
+                        var aHeading = document.createElement("div");
+                        aHeading.className = "optimize-col-header";
+                        var aStrong = document.createElement("strong");
+                        aStrong.textContent = "After";
+                        var aMetrics = document.createElement("span");
+                        aMetrics.className = "optimize-metrics";
+                        aMetrics.innerHTML = 'Time: <code>' + (s.after.time.label || '') + '</code> | Space: <code>' + (s.after.space.label || '') + '</code>';
+                        aHeading.appendChild(aStrong);
+                        aHeading.appendChild(aMetrics);
+                        afterCol.appendChild(aHeading);
+                        var aPre = document.createElement("pre");
+                        aPre.className = "optimize-pseudo";
+                        aPre.textContent = afterPseudoText;
+                        afterCol.appendChild(aPre);
+                        pair.appendChild(afterCol);
+
+                        item.appendChild(pair);
+
+                        if (s.assumptions && s.assumptions.length > 0) {
+                            var assumpWrap = document.createElement("div");
+                            assumpWrap.className = "optimize-assumptions";
+                            var aLabel = document.createElement("strong");
+                            aLabel.textContent = "Assumptions:";
+                            assumpWrap.appendChild(aLabel);
+                            var ul = document.createElement("ul");
+                            ul.className = "optimize-assumptions-list";
+                            s.assumptions.forEach(function (a) {
+                                var li = document.createElement("li");
+                                li.textContent = a;
+                                ul.appendChild(li);
+                            });
+                            assumpWrap.appendChild(ul);
+                            item.appendChild(assumpWrap);
+                        }
+
+                        body.appendChild(item);
+                    }
+                }
+
+                oc.style.display = "block";
+                oc.classList.remove("fade-in");
+                void oc.offsetWidth;
+                oc.classList.add("fade-in");
+            } catch (err) {
+                console.warn("Optimize analysis failed:", err);
             }
         }
 
