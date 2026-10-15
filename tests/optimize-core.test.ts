@@ -3,10 +3,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { findOptimizations } from '../public/js/optimize-core.js';
+import {
+    findOptimizations,
+    applyOptimization,
+    restoreOriginal,
+    isApplicable
+} from '../public/js/optimize-core.js';
 import { analyzeComplexity } from '../public/js/complexity-core.js';
 import { parseDsl } from '../src/parser.js';
 import { generatePseudocode } from '../src/generator.js';
+import { validateRepresentation } from '../src/validator.js';
 
 test('optimize-core: Pattern 1 - Arithmetic Series (positive)', () => {
     const rep = {
@@ -521,3 +527,264 @@ test('optimize-core: Golden Fixtures (01_sum_of_n .. 04_rev)', () => {
     // 04_rev does not match known patterns: found is false
     assert.equal(findOptimizations(rep04).found, false);
 });
+
+test('optimize-core: applyOptimization and restoreOriginal roundtrip & immutability', () => {
+    const rep = {
+        nodes: [
+            { id: 'N1', type: 'start', text: 'Start' },
+            { id: 'N2', type: 'proc', text: 'sum = 0; i = 1' },
+            { id: 'N3', type: 'dec', text: 'i <= n' },
+            { id: 'N4', type: 'proc', text: 'sum = sum + i; i = i + 1' },
+            { id: 'N5', type: 'end', text: 'End' }
+        ],
+        edges: [
+            { from: 'N1', to: 'N2', label: null },
+            { from: 'N2', to: 'N3', label: null },
+            { from: 'N3', to: 'N4', label: 'Yes' },
+            { from: 'N4', to: 'N3', label: null },
+            { from: 'N3', to: 'N5', label: 'No' }
+        ]
+    };
+
+    const originalState = {
+        representation: rep,
+        positions: { N1: { x: 500, y: 60 }, N2: { x: 500, y: 200 } },
+        edgeSides: { 'N3->N4': 'bottom' },
+        sourceId: 'src-original-123'
+    };
+
+    const originalStateSnapshot = JSON.stringify(originalState);
+    const optResult = findOptimizations(rep);
+    assert.equal(optResult.found, true);
+    const suggestion = optResult.suggestions[0];
+
+    // 1. applyOptimization
+    const appliedState = applyOptimization(originalState, suggestion);
+
+    // Input state must never be mutated
+    assert.equal(JSON.stringify(originalState), originalStateSnapshot);
+
+    // New state holds rewritten rep, fresh autoLayout positions, fresh sourceId, and previous slot
+    assert.deepEqual(appliedState.representation, suggestion.rewritten);
+    assert.ok(appliedState.positions);
+    assert.ok(appliedState.positions.N1);
+    assert.notEqual(appliedState.sourceId, originalState.sourceId);
+    assert.equal(typeof appliedState.sourceId, 'string');
+    assert.ok(appliedState.sourceId.length > 0);
+    assert.equal(appliedState.isEditor, true);
+    assert.deepEqual(appliedState.previous.representation, originalState.representation);
+    assert.equal(appliedState.previous.sourceId, originalState.sourceId);
+
+    // 2. restoreOriginal
+    const restoredState = restoreOriginal(appliedState);
+
+    // Restored state brings back original diagram and sourceId
+    assert.deepEqual(restoredState.representation, originalState.representation);
+    assert.deepEqual(restoredState.positions, originalState.positions);
+    assert.equal(restoredState.sourceId, originalState.sourceId);
+    assert.equal(restoredState.previous, null);
+
+    // Running findOptimizations on restored diagram must again offer the same suggestion
+    const reOpt = findOptimizations(restoredState.representation);
+    assert.equal(reOpt.found, true);
+    assert.equal(reOpt.suggestions[0].title, suggestion.title);
+});
+
+test('optimize-core: applying twice does not lose diagram (restore returns diagram from before LATEST apply)', () => {
+    // Original State
+    const state0 = {
+        representation: {
+            nodes: [
+                { id: 'N1', type: 'start', text: 'Start' },
+                { id: 'N2', type: 'proc', text: 'sum = 0; i = 1' },
+                { id: 'N3', type: 'dec', text: 'i <= n' },
+                { id: 'N4', type: 'proc', text: 'sum = sum + i; i = i + 1' },
+                { id: 'N5', type: 'end', text: 'End' }
+            ],
+            edges: [
+                { from: 'N1', to: 'N2', label: null },
+                { from: 'N2', to: 'N3', label: null },
+                { from: 'N3', to: 'N4', label: 'Yes' },
+                { from: 'N4', to: 'N3', label: null },
+                { from: 'N3', to: 'N5', label: 'No' }
+            ]
+        },
+        sourceId: 'src-0'
+    };
+
+    const opt0 = findOptimizations(state0.representation);
+    assert.equal(opt0.found, true);
+
+    // First apply: state0 -> state1
+    const state1 = applyOptimization(state0, opt0.suggestions[0]);
+    assert.equal(state1.previous.sourceId, 'src-0');
+
+    // Synthetic second suggestion (e.g. further edit)
+    const suggestion2 = {
+        rewritten: {
+            nodes: [
+                { id: 'N1', type: 'start', text: 'Start' },
+                { id: 'N2', type: 'proc', text: 'sum = 55' },
+                { id: 'N5', type: 'end', text: 'End' }
+            ],
+            edges: [
+                { from: 'N1', to: 'N2', label: null },
+                { from: 'N2', to: 'N5', label: null }
+            ]
+        }
+    };
+
+    // Second apply: state1 -> state2
+    // The previous slot is overwritten by state1 (the diagram from before the latest apply)
+    const state2 = applyOptimization(state1, suggestion2);
+    assert.equal(state2.previous.sourceId, state1.sourceId);
+    assert.deepEqual(state2.previous.representation, state1.representation);
+
+    // Restore on state2 returns state1 (the diagram from before the LATEST apply)
+    const restoredFrom2 = restoreOriginal(state2);
+    assert.equal(restoredFrom2.sourceId, state1.sourceId);
+    assert.deepEqual(restoredFrom2.representation, state1.representation);
+});
+
+test('optimize-core: isApplicable validation handling', () => {
+    const validSuggestion = {
+        rewritten: {
+            nodes: [
+                { id: 'N1', type: 'start', text: 'Start' },
+                { id: 'N2', type: 'dec', text: 'n >= 1' },
+                { id: 'N3', type: 'proc', text: 'sum = sum + n * (n + 1) / 2' },
+                { id: 'N4', type: 'end', text: 'End' }
+            ],
+            edges: [
+                { from: 'N1', to: 'N2', label: null },
+                { from: 'N2', to: 'N3', label: 'Yes' },
+                { from: 'N2', to: 'N4', label: 'No' },
+                { from: 'N3', to: 'N4', label: null }
+            ]
+        }
+    };
+
+    assert.equal(isApplicable(validSuggestion, validateRepresentation), true);
+    assert.equal(isApplicable(validSuggestion), true); // default without validate
+
+    // Invalid suggestion: orphan node unreachable from start
+    const invalidSuggestion = {
+        rewritten: {
+            nodes: [
+                { id: 'N1', type: 'start', text: 'Start' },
+                { id: 'N2', type: 'end', text: 'End' },
+                { id: 'N3_orphan', type: 'proc', text: 'x = 1' }
+            ],
+            edges: [
+                { from: 'N1', to: 'N2', label: null }
+            ]
+        }
+    };
+
+    assert.equal(isApplicable(invalidSuggestion, validateRepresentation), false);
+    assert.equal(isApplicable(null), false);
+    assert.equal(isApplicable({ rewritten: null }), false);
+});
+
+test('optimize-core: findOptimizations on an already optimized diagram returns found: false (Patterns 1-4)', () => {
+    // 1. Pattern 1: Arithmetic Series
+    const repP1 = {
+        nodes: [
+            { id: 'N1', type: 'start', text: 'Start' },
+            { id: 'N2', type: 'proc', text: 'sum = 0; i = 1' },
+            { id: 'N3', type: 'dec', text: 'i <= n' },
+            { id: 'N4', type: 'proc', text: 'sum = sum + i; i = i + 1' },
+            { id: 'N5', type: 'end', text: 'End' }
+        ],
+        edges: [
+            { from: 'N1', to: 'N2', label: null },
+            { from: 'N2', to: 'N3', label: null },
+            { from: 'N3', to: 'N4', label: 'Yes' },
+            { from: 'N4', to: 'N3', label: null },
+            { from: 'N3', to: 'N5', label: 'No' }
+        ]
+    };
+    const optP1 = findOptimizations(repP1);
+    assert.equal(optP1.found, true);
+    const rewrittenP1 = optP1.suggestions[0].rewritten;
+    // Analyzing rewritten copy has no more loops to optimize
+    assert.equal(findOptimizations(rewrittenP1).found, false);
+
+    // 2. Pattern 2: Constant Addition
+    const repP2 = {
+        nodes: [
+            { id: 'N1', type: 'start', text: 'Start' },
+            { id: 'N2', type: 'proc', text: 'acc = 0; i = 1' },
+            { id: 'N3', type: 'dec', text: 'i <= n' },
+            { id: 'N4', type: 'proc', text: 'acc = acc + 5; i = i + 1' },
+            { id: 'N5', type: 'end', text: 'End' }
+        ],
+        edges: [
+            { from: 'N1', to: 'N2', label: null },
+            { from: 'N2', to: 'N3', label: null },
+            { from: 'N3', to: 'N4', label: 'Yes' },
+            { from: 'N4', to: 'N3', label: null },
+            { from: 'N3', to: 'N5', label: 'No' }
+        ]
+    };
+    const optP2 = findOptimizations(repP2);
+    assert.equal(optP2.found, true);
+    assert.equal(findOptimizations(optP2.suggestions[0].rewritten).found, false);
+
+    // 3. Pattern 3: Pure Counting
+    const repP3 = {
+        nodes: [
+            { id: 'N1', type: 'start', text: 'Start' },
+            { id: 'N2', type: 'proc', text: 'cnt = 0; i = 1' },
+            { id: 'N3', type: 'dec', text: 'i <= n' },
+            { id: 'N4', type: 'proc', text: 'cnt = cnt + 1; i = i + 1' },
+            { id: 'N5', type: 'end', text: 'End' }
+        ],
+        edges: [
+            { from: 'N1', to: 'N2', label: null },
+            { from: 'N2', to: 'N3', label: null },
+            { from: 'N3', to: 'N4', label: 'Yes' },
+            { from: 'N4', to: 'N3', label: null },
+            { from: 'N3', to: 'N5', label: 'No' }
+        ]
+    };
+    const optP3 = findOptimizations(repP3);
+    assert.equal(optP3.found, true);
+    assert.equal(findOptimizations(optP3.suggestions[0].rewritten).found, false);
+
+    // 4. Pattern 4: Triple Counting Loop (all reduced to closed form)
+    const repTriple = {
+        nodes: [
+            { id: 'N1', type: 'start', text: 'Start' },
+            { id: 'N2', type: 'proc', text: 'c = 0; i = 1' },
+            { id: 'N3', type: 'dec', text: 'i <= n' },
+            { id: 'N4', type: 'proc', text: 'j = 1' },
+            { id: 'N5', type: 'dec', text: 'j <= n' },
+            { id: 'N6', type: 'proc', text: 'k = 1' },
+            { id: 'N7', type: 'dec', text: 'k <= n' },
+            { id: 'N8', type: 'proc', text: 'c = c + 1; k = k + 1' },
+            { id: 'N9', type: 'proc', text: 'j = j + 1' },
+            { id: 'N10', type: 'proc', text: 'i = i + 1' },
+            { id: 'N11', type: 'end', text: 'End' }
+        ],
+        edges: [
+            { from: 'N1', to: 'N2', label: null },
+            { from: 'N2', to: 'N3', label: null },
+            { from: 'N3', to: 'N4', label: 'Yes' },
+            { from: 'N4', to: 'N5', label: null },
+            { from: 'N5', to: 'N6', label: 'Yes' },
+            { from: 'N6', to: 'N7', label: null },
+            { from: 'N7', to: 'N8', label: 'Yes' },
+            { from: 'N8', to: 'N7', label: null },
+            { from: 'N7', to: 'N9', label: 'No' },
+            { from: 'N9', to: 'N5', label: null },
+            { from: 'N5', to: 'N10', label: 'No' },
+            { from: 'N10', to: 'N3', label: null },
+            { from: 'N3', to: 'N11', label: 'No' }
+        ]
+    };
+    const optP4 = findOptimizations(repTriple);
+    assert.equal(optP4.found, true);
+    assert.equal(findOptimizations(optP4.suggestions[0].rewritten).found, false);
+});
+

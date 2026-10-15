@@ -11,6 +11,7 @@ import {
     splitStatements,
     isAssignment
 } from './complexity-core.js';
+import { autoLayout, generateSourceId } from './editor-core.js';
 
 /**
  * Deep-clones a flowchart representation.
@@ -1043,4 +1044,79 @@ function buildRewrittenClosedForm(rep, loop, bodyNodeIds, exitNodeId, guardCondi
         nodes: newNodes,
         edges: newEdges
     };
+}
+
+/**
+ * Applies an optimization suggestion to the current diagram state.
+ * Never mutates the input state.
+ * Positions are freshly computed using the existing autoLayout.
+ * The original state is stored as the one previous-state backup slot.
+ *
+ * @param {{ representation: any, positions?: any, edgeSides?: any, sourceId?: string, isEditor?: boolean, previous?: any }} state
+ * @param {{ rewritten: any }} suggestion
+ * @returns {{ representation: any, positions: any, edgeSides: any, sourceId: string, isEditor: boolean, previous: any }}
+ */
+export function applyOptimization(state, suggestion) {
+    if (!state || !suggestion || !suggestion.rewritten) {
+        throw new Error('Invalid state or suggestion passed to applyOptimization');
+    }
+    const newPositions = autoLayout(suggestion.rewritten);
+    const newSourceId = generateSourceId();
+    const previousSlot = clone({
+        representation: state.representation,
+        positions: state.positions,
+        edgeSides: state.edgeSides,
+        sourceId: state.sourceId
+    });
+
+    return {
+        representation: clone(suggestion.rewritten),
+        positions: newPositions,
+        edgeSides: {},
+        sourceId: newSourceId,
+        isEditor: true,
+        previous: previousSlot
+    };
+}
+
+/**
+ * Restores the previous diagram state from the backup slot as current.
+ *
+ * @param {{ representation: any, positions?: any, edgeSides?: any, sourceId?: string, isEditor?: boolean, previous?: any }} state
+ * @returns {{ representation: any, positions: any, edgeSides: any, sourceId: string|undefined, isEditor: boolean, previous: any }}
+ */
+export function restoreOriginal(state) {
+    if (!state || !state.previous) {
+        return clone(state);
+    }
+    const prev = state.previous;
+    return {
+        representation: clone(prev.representation),
+        positions: clone(prev.positions),
+        edgeSides: clone(prev.edgeSides || {}),
+        sourceId: prev.sourceId,
+        isEditor: Boolean(state.isEditor),
+        previous: null
+    };
+}
+
+/**
+ * Checks whether an optimization suggestion is applicable according to the validator.
+ * Returns true only if the rewritten representation passes validation with no blocking errors.
+ *
+ * @param {{ rewritten: any }} suggestion
+ * @param {((rep: any) => { valid?: boolean } | boolean) | undefined} [validate]
+ * @returns {boolean}
+ */
+export function isApplicable(suggestion, validate) {
+    if (!suggestion || !suggestion.rewritten) return false;
+    if (typeof validate !== 'function') return true;
+    try {
+        const res = validate(suggestion.rewritten);
+        if (typeof res === 'boolean') return res;
+        if (res && typeof res.valid === 'boolean') return Boolean(res.valid);
+        return true;
+    } catch (_) {
+        return false;
+    }
 }

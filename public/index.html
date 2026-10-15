@@ -508,6 +508,12 @@ OUTPUT sum</code></pre>
         </section>
 
         <section data-view="result">
+            <div class="banner optimize-banner" id="optimizedBanner" style="display:none" tabindex="-1">
+                <div class="optimize-banner-content">
+                    <span class="optimize-banner-text"><strong>Optimized version in use.</strong></span>
+                    <button type="button" class="btn alt" id="restoreOriginalBtn">Restore original</button>
+                </div>
+            </div>
             <div class="result-header-row">
                 <h2>Review your diagram</h2>
                 <div class="result-header-actions">
@@ -565,7 +571,7 @@ OUTPUT sum</code></pre>
                         </details>
                         <p class="complexity-footnote">Heuristic estimate read from the diagram's loops. Check it against your own analysis. Space counts extra variables, not the input.</p>
                     </div>
-                    <div class="card" id="optimizeCard" style="display:none;margin-top:var(--space-4)">
+                    <div class="card" id="optimizeCard" style="display:none;margin-top:var(--space-4)" tabindex="-1">
                         <div class="card-header">
                             <div class="optimize-title-wrap">
                                 <strong>Optimize</strong>
@@ -674,12 +680,19 @@ OUTPUT sum</code></pre>
                     var parsed = JSON.parse(autosaved);
                     if (parsed && parsed.representation && Array.isArray(parsed.representation.nodes)) {
                         var storedSourceId = parsed.sourceId || sessionStorage.getItem("flowchart_source_id") || (result && result.sourceId) || null;
+                        var prevRaw = sessionStorage.getItem("flowchart_editor_previous_state");
+                        var prevParsed = null;
+                        if (prevRaw) {
+                            try { prevParsed = JSON.parse(prevRaw); } catch (e) { }
+                        }
                         result = {
                             representation: parsed.representation,
                             positions: parsed.positions,
                             edgeSides: parsed.edgeSides,
                             sourceId: storedSourceId,
                             isEditor: true,
+                            isOptimized: Boolean(prevParsed && prevParsed.representation),
+                            previous: prevParsed || undefined,
                             provider: (result && result.provider) || "canvas editor",
                             confidence: (result && result.confidence)
                         };
@@ -957,6 +970,7 @@ OUTPUT sum</code></pre>
                 isSample = false;
                 if (data && data.representation) {
                     try {
+                        sessionStorage.removeItem("flowchart_editor_previous_state");
                         sessionStorage.setItem("flowchart_representation", JSON.stringify(data.representation));
                         sessionStorage.setItem("flowchart_source", "upload");
                         sessionStorage.setItem("flowchart_source_id", srcId);
@@ -995,6 +1009,7 @@ OUTPUT sum</code></pre>
             result = Object.assign({}, SAMPLE, { sourceId: srcId });
             isSample = true;
             try {
+                sessionStorage.removeItem("flowchart_editor_previous_state");
                 sessionStorage.setItem("flowchart_representation", JSON.stringify(SAMPLE.representation));
                 sessionStorage.setItem("flowchart_source", "recorded");
                 sessionStorage.setItem("flowchart_source_id", srcId);
@@ -1075,6 +1090,10 @@ OUTPUT sum</code></pre>
             } else {
                 note.style.display = isSample ? "block" : "none";
                 note.innerHTML = "<strong>Recorded example.</strong> This is a saved result for a sum-of-n flowchart, not your upload.";
+            }
+            var optBanner = $("#optimizedBanner");
+            if (optBanner) {
+                optBanner.style.display = (result && result.isOptimized) ? "flex" : "none";
             }
             var chips = $("#chips"); chips.textContent = "";
             var info = [];
@@ -1286,7 +1305,10 @@ OUTPUT sum</code></pre>
 
                 body.textContent = "";
 
-                if (!optResult || !optResult.found || !optResult.suggestions || optResult.suggestions.length === 0) {
+                var firstSuggestion = (optResult && optResult.suggestions && optResult.suggestions[0]) || null;
+                var applicable = Boolean(firstSuggestion && mod.isApplicable && mod.isApplicable(firstSuggestion, validateRep));
+
+                if (!optResult || !optResult.found || !firstSuggestion || !applicable) {
                     if (badge) {
                         badge.textContent = "None";
                         badge.className = "badge optimize-badge badge-muted";
@@ -1298,99 +1320,10 @@ OUTPUT sum</code></pre>
                     body.appendChild(p);
                 } else {
                     if (badge) {
-                        var count = optResult.suggestions.length;
-                        badge.textContent = count + " suggestion" + (count > 1 ? "s" : "");
+                        badge.textContent = "1 suggestion";
                         badge.className = "badge optimize-badge badge-estimated";
                     }
-
-                    for (var i = 0; i < optResult.suggestions.length; i++) {
-                        var s = optResult.suggestions[i];
-                        var item = document.createElement("div");
-                        item.className = "optimize-item";
-
-                        var h = document.createElement("h4");
-                        h.className = "optimize-item-title";
-                        h.textContent = s.title;
-                        item.appendChild(h);
-
-                        var r = document.createElement("p");
-                        r.className = "optimize-item-reason";
-                        r.textContent = s.reason;
-                        item.appendChild(r);
-
-                        var afterPseudoText = "";
-                        try {
-                            var res = await fetch("/api/generate", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ representation: s.rewritten })
-                            });
-                            var data = await res.json();
-                            afterPseudoText = (data && data.pseudocode) || "";
-                        } catch (e) {
-                            afterPseudoText = "(Could not generate after pseudocode)";
-                        }
-
-                        var pair = document.createElement("div");
-                        pair.className = "optimize-pair";
-
-                        var beforeCol = document.createElement("div");
-                        beforeCol.className = "optimize-col";
-                        var bHeading = document.createElement("div");
-                        bHeading.className = "optimize-col-header";
-                        var bStrong = document.createElement("strong");
-                        bStrong.textContent = "Before";
-                        var bMetrics = document.createElement("span");
-                        bMetrics.className = "optimize-metrics";
-                        bMetrics.innerHTML = 'Time: <code>' + (s.before.time.label || '') + '</code> | Space: <code>' + (s.before.space.label || '') + '</code>';
-                        bHeading.appendChild(bStrong);
-                        bHeading.appendChild(bMetrics);
-                        beforeCol.appendChild(bHeading);
-                        var bPre = document.createElement("pre");
-                        bPre.className = "optimize-pseudo";
-                        bPre.textContent = originalPseudocode || "";
-                        beforeCol.appendChild(bPre);
-                        pair.appendChild(beforeCol);
-
-                        var afterCol = document.createElement("div");
-                        afterCol.className = "optimize-col";
-                        var aHeading = document.createElement("div");
-                        aHeading.className = "optimize-col-header";
-                        var aStrong = document.createElement("strong");
-                        aStrong.textContent = "After";
-                        var aMetrics = document.createElement("span");
-                        aMetrics.className = "optimize-metrics";
-                        aMetrics.innerHTML = 'Time: <code>' + (s.after.time.label || '') + '</code> | Space: <code>' + (s.after.space.label || '') + '</code>';
-                        aHeading.appendChild(aStrong);
-                        aHeading.appendChild(aMetrics);
-                        afterCol.appendChild(aHeading);
-                        var aPre = document.createElement("pre");
-                        aPre.className = "optimize-pseudo";
-                        aPre.textContent = afterPseudoText;
-                        afterCol.appendChild(aPre);
-                        pair.appendChild(afterCol);
-
-                        item.appendChild(pair);
-
-                        if (s.assumptions && s.assumptions.length > 0) {
-                            var assumpWrap = document.createElement("div");
-                            assumpWrap.className = "optimize-assumptions";
-                            var aLabel = document.createElement("strong");
-                            aLabel.textContent = "Assumptions:";
-                            assumpWrap.appendChild(aLabel);
-                            var ul = document.createElement("ul");
-                            ul.className = "optimize-assumptions-list";
-                            s.assumptions.forEach(function (a) {
-                                var li = document.createElement("li");
-                                li.textContent = a;
-                                ul.appendChild(li);
-                            });
-                            assumpWrap.appendChild(ul);
-                            item.appendChild(assumpWrap);
-                        }
-
-                        body.appendChild(item);
-                    }
+                    renderOptimizeTeaser(mod, rep, originalPseudocode, firstSuggestion);
                 }
 
                 oc.style.display = "block";
@@ -1400,6 +1333,330 @@ OUTPUT sum</code></pre>
             } catch (err) {
                 console.warn("Optimize analysis failed:", err);
             }
+        }
+
+        function renderOptimizeTeaser(mod, rep, originalPseudocode, suggestion) {
+            var body = $("#optimizeBody");
+            if (!body) return;
+            body.textContent = "";
+
+            var teaser = document.createElement("div");
+            teaser.className = "optimize-teaser";
+
+            var info = document.createElement("div");
+            info.className = "optimize-teaser-info";
+
+            var title = document.createElement("strong");
+            title.className = "optimize-teaser-title";
+            title.textContent = "This algorithm can be simplified";
+
+            var delta = document.createElement("span");
+            delta.className = "optimize-teaser-delta";
+            var timeBefore = (suggestion.before && suggestion.before.time && suggestion.before.time.label) || "unknown";
+            var timeAfter = (suggestion.after && suggestion.after.time && suggestion.after.time.label) || "unknown";
+            delta.textContent = "Time " + timeBefore + " -> " + timeAfter;
+
+            info.appendChild(title);
+            info.appendChild(delta);
+            teaser.appendChild(info);
+
+            var optBtn = document.createElement("button");
+            optBtn.type = "button";
+            optBtn.className = "btn";
+            optBtn.id = "optimizeThisBtn";
+            optBtn.textContent = "Optimize this";
+            optBtn.addEventListener("click", async function () {
+                await renderOptimizeExpanded(mod, rep, originalPseudocode, suggestion);
+                var oc = $("#optimizeCard");
+                if (oc) {
+                    oc.setAttribute("tabindex", "-1");
+                    oc.focus();
+                }
+            });
+
+            teaser.appendChild(optBtn);
+            body.appendChild(teaser);
+        }
+
+        async function renderOptimizeExpanded(mod, rep, originalPseudocode, suggestion) {
+            var body = $("#optimizeBody");
+            if (!body) return;
+            body.textContent = "";
+
+            var item = document.createElement("div");
+            item.className = "optimize-item";
+
+            var h = document.createElement("h4");
+            h.className = "optimize-item-title";
+            h.textContent = suggestion.title;
+            item.appendChild(h);
+
+            var r = document.createElement("p");
+            r.className = "optimize-item-reason";
+            r.textContent = suggestion.reason;
+            item.appendChild(r);
+
+            var afterPseudoText = "";
+            try {
+                var res = await fetch("/api/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ representation: suggestion.rewritten })
+                });
+                var data = await res.json();
+                afterPseudoText = (data && data.pseudocode) || "";
+            } catch (e) {
+                afterPseudoText = "(Could not generate after pseudocode)";
+            }
+
+            var pair = document.createElement("div");
+            pair.className = "optimize-pair";
+
+            var beforeCol = document.createElement("div");
+            beforeCol.className = "optimize-col";
+            var bHeading = document.createElement("div");
+            bHeading.className = "optimize-col-header";
+            var bStrong = document.createElement("strong");
+            bStrong.textContent = "Before";
+            var bMetrics = document.createElement("span");
+            bMetrics.className = "optimize-metrics";
+            bMetrics.innerHTML = 'Time: <code>' + (suggestion.before.time.label || '') + '</code> | Space: <code>' + (suggestion.before.space.label || '') + '</code>';
+            bHeading.appendChild(bStrong);
+            bHeading.appendChild(bMetrics);
+            beforeCol.appendChild(bHeading);
+            var bPre = document.createElement("pre");
+            bPre.className = "optimize-pseudo";
+            bPre.textContent = originalPseudocode || "";
+            beforeCol.appendChild(bPre);
+            pair.appendChild(beforeCol);
+
+            var afterCol = document.createElement("div");
+            afterCol.className = "optimize-col";
+            var aHeading = document.createElement("div");
+            aHeading.className = "optimize-col-header";
+            var aStrong = document.createElement("strong");
+            aStrong.textContent = "After";
+            var aMetrics = document.createElement("span");
+            aMetrics.className = "optimize-metrics";
+            aMetrics.innerHTML = 'Time: <code>' + (suggestion.after.time.label || '') + '</code> | Space: <code>' + (suggestion.after.space.label || '') + '</code>';
+            aHeading.appendChild(aStrong);
+            aHeading.appendChild(aMetrics);
+            afterCol.appendChild(aHeading);
+            var aPre = document.createElement("pre");
+            aPre.className = "optimize-pseudo";
+            aPre.textContent = afterPseudoText;
+            afterCol.appendChild(aPre);
+            pair.appendChild(afterCol);
+
+            item.appendChild(pair);
+
+            if (suggestion.assumptions && suggestion.assumptions.length > 0) {
+                var assumpWrap = document.createElement("div");
+                assumpWrap.className = "optimize-assumptions";
+                var aLabel = document.createElement("strong");
+                aLabel.textContent = "Assumptions:";
+                assumpWrap.appendChild(aLabel);
+                var ul = document.createElement("ul");
+                ul.className = "optimize-assumptions-list";
+                suggestion.assumptions.forEach(function (a) {
+                    var li = document.createElement("li");
+                    li.textContent = a;
+                    ul.appendChild(li);
+                });
+                assumpWrap.appendChild(ul);
+                item.appendChild(assumpWrap);
+            }
+
+            var actionsRow = document.createElement("div");
+            actionsRow.className = "optimize-actions-row";
+
+            var useBtn = document.createElement("button");
+            useBtn.type = "button";
+            useBtn.className = "btn";
+            useBtn.id = "useThisInsteadBtn";
+            useBtn.textContent = "Use this instead";
+            useBtn.addEventListener("click", async function () {
+                await handleUseThisInstead(mod, rep, suggestion, afterPseudoText);
+            });
+
+            var keepBtn = document.createElement("button");
+            keepBtn.type = "button";
+            keepBtn.className = "btn alt";
+            keepBtn.id = "keepOriginalBtn";
+            keepBtn.textContent = "Keep original";
+            keepBtn.addEventListener("click", function () {
+                renderOptimizeTeaser(mod, rep, originalPseudocode, suggestion);
+                var optBtn = $("#optimizeThisBtn");
+                if (optBtn) optBtn.focus();
+            });
+
+            actionsRow.appendChild(useBtn);
+            actionsRow.appendChild(keepBtn);
+            item.appendChild(actionsRow);
+
+            body.appendChild(item);
+        }
+
+        async function handleUseThisInstead(mod, rep, suggestion, afterPseudoText) {
+            var currentState = {
+                representation: rep,
+                positions: (result && result.positions) || null,
+                edgeSides: (result && result.edgeSides) || null,
+                sourceId: (result && result.sourceId) || sessionStorage.getItem("flowchart_source_id") || makeSourceId(),
+                previous: (result && result.previous) || null
+            };
+
+            var newState = mod.applyOptimization(currentState, suggestion);
+
+            try {
+                sessionStorage.setItem("flowchart_representation", JSON.stringify(newState.representation));
+                sessionStorage.setItem("flowchart_editor_state", JSON.stringify({
+                    representation: newState.representation,
+                    positions: newState.positions,
+                    edgeSides: newState.edgeSides,
+                    sourceId: newState.sourceId
+                }));
+                if (newState.previous) {
+                    sessionStorage.setItem("flowchart_editor_previous_state", JSON.stringify(newState.previous));
+                }
+                sessionStorage.setItem("flowchart_source", "editor");
+                sessionStorage.setItem("flowchart_source_id", newState.sourceId);
+            } catch (e) { }
+
+            result.representation = newState.representation;
+            result.positions = newState.positions;
+            result.edgeSides = newState.edgeSides;
+            result.sourceId = newState.sourceId;
+            result.isEditor = true;
+            result.isOptimized = true;
+            result.previous = newState.previous;
+
+            if (afterPseudoText && !afterPseudoText.startsWith("(")) {
+                result.pseudocode = afterPseudoText;
+            } else {
+                try {
+                    var res = await fetch("/api/generate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ representation: newState.representation })
+                    });
+                    var data = await res.json();
+                    result.pseudocode = data.pseudocode || "";
+                } catch (e) { }
+            }
+            var pcEl = $("#pseudo");
+            if (pcEl) pcEl.textContent = result.pseudocode || "";
+
+            var banner = $("#optimizedBanner");
+            if (banner) {
+                banner.style.display = "flex";
+                var restoreBtn = $("#restoreOriginalBtn");
+                if (restoreBtn) restoreBtn.focus();
+                else banner.focus();
+            }
+
+            await drawDiagram(newState.representation, newState.positions, newState.edgeSides);
+
+            var nodes = newState.representation.nodes || [];
+            var edges = newState.representation.edges || [];
+            var nb = $("#nodes"); if (nb) {
+                nb.textContent = "";
+                nodes.forEach(function (n) { var r = el("tr"); r.append(el("td", n.id), el("td", KIND[n.type] || n.type), el("td", n.text)); var u = el("td"); if (n.uncertain) u.appendChild(el("mark", "unsure")); r.append(u); nb.appendChild(r); });
+            }
+            var eb = $("#edges"); if (eb) {
+                eb.textContent = "";
+                edges.forEach(function (e) { var r = el("tr"); r.append(el("td", e.from), el("td", e.to), el("td", e.label || "")); var u = el("td"); if (e.uncertain) u.appendChild(el("mark", "unsure")); r.append(u); eb.appendChild(r); });
+            }
+            $("#raw").textContent = JSON.stringify(result, null, 2);
+
+            await updateComplexityPanel(newState.representation);
+            await updateOptimizePanel(newState.representation, result.pseudocode);
+        }
+
+        async function handleRestoreOriginal() {
+            var mod = window.OptimizeCore;
+            if (!mod) {
+                mod = await import("/js/optimize-core.js");
+            }
+            var prev = (result && result.previous) || null;
+            if (!prev) {
+                try {
+                    var prevRaw = sessionStorage.getItem("flowchart_editor_previous_state");
+                    if (prevRaw) prev = JSON.parse(prevRaw);
+                } catch (e) { }
+            }
+            var curState = {
+                representation: result.representation,
+                positions: result.positions,
+                edgeSides: result.edgeSides,
+                sourceId: result.sourceId,
+                previous: prev
+            };
+            var restoredState = mod.restoreOriginal(curState);
+
+            try {
+                sessionStorage.setItem("flowchart_representation", JSON.stringify(restoredState.representation));
+                sessionStorage.setItem("flowchart_editor_state", JSON.stringify({
+                    representation: restoredState.representation,
+                    positions: restoredState.positions,
+                    edgeSides: restoredState.edgeSides,
+                    sourceId: restoredState.sourceId
+                }));
+                sessionStorage.removeItem("flowchart_editor_previous_state");
+                sessionStorage.setItem("flowchart_source", "editor");
+                sessionStorage.setItem("flowchart_source_id", restoredState.sourceId);
+            } catch (e) { }
+
+            result.representation = restoredState.representation;
+            result.positions = restoredState.positions;
+            result.edgeSides = restoredState.edgeSides;
+            result.sourceId = restoredState.sourceId;
+            result.isOptimized = false;
+            delete result.previous;
+
+            var banner = $("#optimizedBanner");
+            if (banner) banner.style.display = "none";
+
+            try {
+                var res = await fetch("/api/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ representation: restoredState.representation })
+                });
+                var data = await res.json();
+                result.pseudocode = data.pseudocode || "";
+            } catch (e) { }
+            var pcEl = $("#pseudo");
+            if (pcEl) pcEl.textContent = result.pseudocode || "";
+
+            await drawDiagram(restoredState.representation, restoredState.positions, restoredState.edgeSides);
+
+            var nodes = restoredState.representation.nodes || [];
+            var edges = restoredState.representation.edges || [];
+            var nb = $("#nodes"); if (nb) {
+                nb.textContent = "";
+                nodes.forEach(function (n) { var r = el("tr"); r.append(el("td", n.id), el("td", KIND[n.type] || n.type), el("td", n.text)); var u = el("td"); if (n.uncertain) u.appendChild(el("mark", "unsure")); r.append(u); nb.appendChild(r); });
+            }
+            var eb = $("#edges"); if (eb) {
+                eb.textContent = "";
+                edges.forEach(function (e) { var r = el("tr"); r.append(el("td", e.from), el("td", e.to), el("td", e.label || "")); var u = el("td"); if (e.uncertain) u.appendChild(el("mark", "unsure")); r.append(u); eb.appendChild(r); });
+            }
+            $("#raw").textContent = JSON.stringify(result, null, 2);
+
+            await updateComplexityPanel(restoredState.representation);
+            await updateOptimizePanel(restoredState.representation, result.pseudocode);
+
+            var oc = $("#optimizeCard");
+            if (oc) {
+                var optBtn = $("#optimizeThisBtn");
+                if (optBtn) optBtn.focus();
+                else oc.focus();
+            }
+        }
+
+        var restoreOriginalBtn = $("#restoreOriginalBtn");
+        if (restoreOriginalBtn) {
+            restoreOriginalBtn.addEventListener("click", handleRestoreOriginal);
         }
 
         var genPseudoBtn = $("#generatePseudoBtn");
